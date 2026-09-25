@@ -1,0 +1,38 @@
+[
+  {
+    "key": "spring",
+    "date": "2027-04-21",
+    "style": "comic book, bold ink lines and flat colour",
+    "condition": "rainy",
+    "high": 14.1,
+    "low": 6.3,
+    "image": "gallery-spring.jpg"
+  },
+  {
+    "key": "summer",
+    "date": "2027-07-14",
+    "style": "watercolour with soft bleeding edges",
+    "condition": "sunny",
+    "high": 31.2,
+    "low": 19.4,
+    "image": "gallery-summer.jpg"
+  },
+  {
+    "key": "autumn",
+    "date": "2027-10-20",
+    "style": "stained glass with lead came outlines",
+    "condition": "windy",
+    "high": 12.3,
+    "low": 6.2,
+    "image": "gallery-autumn.jpg"
+  },
+  {
+    "key": "winter",
+    "date": "2028-01-12",
+    "style": "mid-century children's book illustration",
+    "condition": "snowy",
+    "high": -1.2,
+    "low": -5.1,
+    "image": "gallery-winter.jpg"
+  }
+]

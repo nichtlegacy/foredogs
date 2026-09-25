@@ -1,0 +1,22 @@
+[Unit]
+Description=Generate the daily foredogs picture and publish it to Home Assistant
+Documentation=https://github.com/nichtlegacy/foredogs
+# The generator needs a resolvable network before it can geocode and publish.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/opt/foredogs/generator
+ExecStart=%h/opt/foredogs/generator/scripts/daily_run.sh
+
+# One generation can take several minutes at max reasoning effort, and 19.7
+# minutes has been measured. Do not let systemd kill it mid-run.
+TimeoutStartSec=2400
+
+# The script reads the Home Assistant token and the Immich key from
+# ~/.config/foredogs/ itself, so no secret belongs in this unit.
+
+# A login shell is not used here, unlike on macOS. If codex lives somewhere
+# outside the default PATH, add it:
+#   Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin

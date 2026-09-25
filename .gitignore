@@ -1,0 +1,77 @@
+# --- Local, private configuration -------------------------------------------
+# These files describe one specific household: location, network, dogs, and
+# family dates. Copies with placeholder values live in examples/ and are the
+# ones that ship. Never track the real ones.
+generator/config.json
+generator/config/dogs.json
+generator/config/celebrations.yaml
+# The style pool is personal taste, and a live one tends to accumulate named
+# franchises and characters. examples/generator/art_styles.example.json is what
+# ships instead.
+generator/config/art_styles.json
+custom_components/foredogs/secrets.yaml
+
+# --- Runtime data -----------------------------------------------------------
+# Written by every run and specific to one installation.
+generator/imported/
+generator/assets/
+generator/output/
+generator/state/
+generator/logs/
+foredogs_data/
+
+# --- Reference photos and generated pictures --------------------------------
+# Photos of real dogs and people, plus everything the image model produced from
+# them. Keep them out of the repository entirely.
+*.png
+*.jpg
+*.jpeg
+*.webp
+!.github/images/*.png
+!.github/images/*.jpg
+!.github/images/*.webp
+# The landing page's frames, pictures and icons are built from the gallery
+# images above and are published on purpose.
+!site/*.png
+!site/*.jpg
+!site/screens/*.png
+!site/pictures/*.png
+!site/pictures/*.webp
+!site/pictures/styles/*.webp
+# The integration's brand icons, rendered from design/icon/foredogs.svg.
+!custom_components/foredogs/brand/*.png
+
+# --- Secrets ----------------------------------------------------------------
+.env
+*.token
+secrets.yaml
+
+# --- ESPHome build cache ----------------------------------------------------
+esphome/.esphome/
+esphome/secrets.yaml
+
+# --- Landing page build output ---------------------------------------------
+_site/
+
+# --- Python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+build/
+dist/
+*.egg-info/
+
+# --- Editors and tooling ----------------------------------------------------
+.DS_Store
+.claude/
+.labide/
+.llm/
+.archive/
+notes.txt
+todo.txt
+
+# --- Logs and local backups -------------------------------------------------
+*.log
+*.log.*
+*.bak

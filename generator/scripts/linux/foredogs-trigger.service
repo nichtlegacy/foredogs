@@ -1,0 +1,21 @@
+[Unit]
+Description=Check Home Assistant for a manual foredogs generation request
+Documentation=https://github.com/nichtlegacy/foredogs
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/opt/foredogs/generator
+ExecStart=%h/opt/foredogs/generator/scripts/trigger_watch.sh
+
+# A manual generation runs the full pipeline, so allow the same budget as the
+# daily unit.
+TimeoutStartSec=2400
+
+# Set these if your helper entities are named differently. The defaults are
+# input_button.foredogs_generation_trigger and
+# input_text.foredogs_generation_status.
+#   Environment=FOREDOGS_TRIGGER_ENTITY=input_button.my_trigger
+#   Environment=FOREDOGS_STATUS_ENTITY=input_text.my_status
+#   Environment=HA_URL=http://10.0.0.2:8123

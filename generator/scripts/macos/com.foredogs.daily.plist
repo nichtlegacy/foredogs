@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Daily image generation for the kitchen display.
+
+  Install:
+      cp scripts/macos/com.foredogs.daily.plist ~/Library/LaunchAgents/
+      # edit the two paths below if the repo lives elsewhere
+      launchctl load ~/Library/LaunchAgents/com.foredogs.daily.plist
+
+  Check / run by hand:
+      launchctl list | grep foredogs
+      launchctl start com.foredogs.daily
+      tail -f "logs/daily_run.log"
+
+  Uninstall:
+      launchctl unload ~/Library/LaunchAgents/com.foredogs.daily.plist
+
+  Runs at 04:30, well before the display's single daily wake at 05:45.
+  Generation usually takes 3-7 minutes but has been measured at 19.7, and the
+  panel fetches whatever Home Assistant last rendered at the moment it wakes —
+  so a slow run used to leave yesterday's picture on the screen for the whole
+  day. 75 minutes of headroom removes that race. RunAtLoad is off deliberately:
+  loading the agent should not kick off a generation.
+
+  If the Mac is asleep at 05:30, launchd runs the job at the next wake, so a
+  laptop that is only open in the evening still produces one image a day.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.foredogs.daily</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>-lc</string>
+        <!-- Login shell so ~/.zshrc sets up PATH and any credential helpers.
+             The token is read here rather than stored in config.json. -->
+        <string>export FOREDOGS_HA_TOKEN="$(cat ~/.config/foredogs/ha_token 2>/dev/null)"; export FOREDOGS_IMMICH_KEY="$(cat ~/.config/foredogs/immich_key 2>/dev/null)"; exec "$HOME/opt/foredogs/generator/scripts/daily_run.sh"</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>4</integer>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/foredogs-daily.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/foredogs-daily.err.log</string>
+
+    <!-- One generation can take several minutes at max reasoning effort; do not
+         let launchd kill it. -->
+    <key>ExitTimeOut</key>
+    <integer>2400</integer>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

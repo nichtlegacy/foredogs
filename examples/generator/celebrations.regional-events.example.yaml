@@ -1,0 +1,69 @@
+# Regional events, as an example of what the `local` and `season` kinds are for.
+#
+# The built-in calendar covers nationwide German holidays only. Town festivals,
+# markets and fairs are the part that has to come from configuration, because
+# every town has different ones. Merge the entries you want into your own
+# generator/config/celebrations.yaml.
+#
+# The three below are invented. They exist to demonstrate three different
+# scheduling rules, not to describe a real place — a festival's schedule is
+# distinctive enough to identify a town even with the name removed, which is a
+# good reason not to publish your own file.
+
+events:
+  # A fixed date with a duration: the simplest kind of local event.
+  - id: harbour_festival
+    name: Hafenfest
+    kind: local
+    month: 7
+    day: 12
+    duration_days: 3
+    priority: 60
+    prompt: >
+      A summer harbour festival: stalls along the water, bunting between masts,
+      music and food in the evening light.
+
+  # A fixed weekend rather than a fixed date: the second Saturday in September,
+  # running over the weekend. `nth_weekday` is for anything scheduled as "the
+  # third Sunday in ...".
+  - id: autumn_market
+    name: Herbstmarkt
+    kind: local
+    rule: nth_weekday
+    month: 9
+    weekday: Samstag
+    nth: 2
+    duration_days: 2
+    priority: 55
+    prompt: >
+      An autumn market on the town square: crates of apples and pumpkins,
+      wool blankets, low golden light.
+
+  # Tied to Easter rather than to the calendar, and held every few years.
+  # `every_n_years` counts from `anchor_year`, so 2028, 2033, 2038, ...
+  - id: spring_pageant
+    name: Frühlingsumzug
+    kind: local
+    rule: easter_offset
+    offset: 21
+    duration_days: 2
+    every_n_years: 5
+    anchor_year: 2028
+    priority: 70
+    outfit: festival costume
+    prompt: >
+      A spring pageant three weeks after Easter: a procession through the old
+      town, costumes, banners, blossom on the trees.
+
+  # A long season rather than a day. `kind: season` means it only ever tints the
+  # background — it never puts written text in the picture.
+  - id: christmas_market
+    name: Weihnachtsmarkt
+    kind: season
+    month: 11
+    day: 27
+    duration_days: 30
+    priority: 20
+    prompt: >
+      Christmas market season: lit stalls on the market square, a covered ice
+      rink, mulled-wine warmth. Background flavour only.

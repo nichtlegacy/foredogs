@@ -1,0 +1,258 @@
+generate_dog_picture:
+  name: Generate Dog Picture
+  description: Generate a weather-themed dog picture
+  fields:
+    gemini_api_key:
+      name: API key
+      description: >-
+        Key for the endpoint below. Store it in secrets.yaml and reference it as
+        !secret gemini_api_key rather than writing it into an automation.
+      required: true
+      example: "!secret gemini_api_key"
+      selector:
+        text:
+    base_url:
+      name: API base URL
+      description: >-
+        OpenAI-compatible endpoint. Leave empty for Google's public endpoint.
+        Set it to reach a local proxy, LiteLLM, OpenRouter, Ollama or OpenAI.
+      required: false
+      example: https://generativelanguage.googleapis.com/v1beta/openai/
+      selector:
+        text:
+    text_model:
+      name: Text model
+      description: Model for the activity description. Defaults to gemini-2.5-flash.
+      required: false
+      example: gemini-2.5-flash
+      selector:
+        text:
+    image_model:
+      name: Image model
+      description: Model for the picture. Defaults to gemini-3-pro-image.
+      required: false
+      example: gemini-3-pro-image
+      selector:
+        text:
+    location:
+      description: Location for weather context
+      example: "Berlin, Germany"
+      required: true
+      selector:
+        text:
+    forecast:
+      description: Weather forecast data
+      required: true
+    dog_names:
+      description: Names of your dogs
+      required: true
+      selector:
+        object:
+    dog_descriptions:
+      description: Descriptions of your dogs
+      required: true
+      selector:
+        object:
+    input_image_paths:
+      description: Paths to reference images
+      required: true
+      selector:
+        object:
+    art_styles:
+      description: >-
+        Styles to choose from. Omitted, a small generic fallback pool is used;
+        it is a starting point, not a recommendation.
+      required: false
+      selector:
+        object:
+    person_names:
+      description: Optional list of companion person names (one entry per person image/description)
+      required: false
+      selector:
+        object:
+    person_descriptions:
+      description: Optional list of companion person descriptions, mapped 1:1 to person_names
+      required: false
+      selector:
+        object:
+    person_image_paths:
+      description: Optional list of companion person reference image paths, mapped 1:1 to person_names
+      required: false
+      selector:
+        object:
+    person_inclusion_probability:
+      description: Probability (0.0-1.0) to include exactly one companion person in the scene
+      required: false
+      default: 0.4
+      example: 0.4
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 0.05
+          mode: box
+    image_gen_aspect_ratio:
+      description: Aspect ratio for generated image
+      default: "16:9"
+      selector:
+        text:
+    image_gen_resolution:
+      description: Resolution for generated image
+      default: "1K"
+      selector:
+        text:
+    final_image_size:
+      description: Final output image size
+      default: "1K"
+      example: "800x480"
+      selector:
+        text:
+    display_profile:
+      description: Display profile (null or "spectra6")
+      required: true
+      default: null
+      example: "spectra6"
+      selector:
+        text:
+
+render_dashboard:
+  name: Render Kitchen Dashboard
+  description: >-
+    Composite the cached Foredogs image with live Home Assistant data into an
+    800x480 PNG for the reTerminal E1002. Costs nothing (no Gemini call), so it
+    can run every 30 minutes while the image itself is only generated daily.
+    Returns changed=true when the displayed content actually differs from the
+    last render, which the device uses to skip unnecessary panel refreshes.
+  fields:
+    weather_entity:
+      description: Weather entity providing current conditions and the daily forecast
+      required: true
+      example: weather.forecast_home
+      selector:
+        entity:
+          domain: weather
+    inside_temp_entity:
+      description: Indoor temperature sensor (the display's own SHT40)
+      required: false
+      example: sensor.e1002_playground_temperature
+      selector:
+        entity:
+          domain: sensor
+    inside_humidity_entity:
+      description: Indoor humidity sensor
+      required: false
+      example: sensor.e1002_playground_humidity
+      selector:
+        entity:
+          domain: sensor
+    battery_entity:
+      description: Battery level sensor of the display
+      required: false
+      example: sensor.e1002_playground_battery_level
+      selector:
+        entity:
+          domain: sensor
+    waste_sensors:
+      description: >-
+        List of waste collection sensors. Each entry needs entity_id and label;
+        kind selects the block colour (rest, bio, papier, gelb).
+      required: false
+      example: |
+        - entity_id: sensor.residual_waste
+          label: Residual
+          kind: rest
+      selector:
+        object:
+    waste_calendars:
+      description: >-
+        Waste bins that only exist as calendar events. Each entry needs
+        entity_id and label; match filters events by summary text.
+      required: false
+      example: |
+        - entity_id: calendar.waste_collection
+          label: Bio
+          kind: bio
+          match: bio
+      selector:
+        object:
+    image_dir:
+      name: Image folder
+      description: >-
+        Folder of generated pictures, relative to www/daily_foredogs. Preferred
+        over source_image: the picker resolves today's date first and falls back
+        through weather pools to the newest image, so a day the generator did
+        not run still shows a picture.
+      required: false
+      example: dogs
+      selector:
+        text:
+    source_image:
+      description: >-
+        Single image to composite, relative to www/daily_foredogs or absolute.
+        Use foredogs_original.png so the renderer dithers it itself. Ignored
+        when image_dir is set.
+      required: false
+      default: foredogs_original.png
+      selector:
+        text:
+    keep_days:
+      name: Keep days
+      description: >-
+        Delete dated images in image_dir older than this many days. 0 keeps
+        everything, which is the safe default: this copy is often the only one
+        left when an archive server has been down unnoticed.
+      required: false
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 3650
+          mode: box
+    page:
+      name: Page
+      description: 1 = home, 2 = weather detail, 3 = photo.
+      required: false
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 3
+          mode: box
+    page_count:
+      name: Page count
+      description: >-
+        How many pages exist. At 1 the page marker is not drawn at all.
+      required: false
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 3
+          mode: box
+    photo:
+      name: Photo source
+      description: >-
+        Source for page 3. Keys: url, api_key or share_key, album_id or
+        album_name, fallback_folder, rotate_hours.
+      required: false
+      selector:
+        object:
+    language:
+      name: Language
+      description: >-
+        Language of the drawn labels. Only affects text the renderer produces;
+        waste bin labels come from your own configuration and are used as
+        written.
+      required: false
+      default: de
+      selector:
+        select:
+          options:
+            - de
+            - en
+    dither_photo:
+      description: Apply Atkinson dithering to the photo region
+      required: false
+      default: true
+      selector:
+        boolean:

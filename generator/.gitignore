@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.DS_Store
+
+# Runtime data: written by every run, not part of the source.
+logs/
+output/
+state/
+
+# Local safety copies taken before migrations; git history supersedes them.
+*.bak

@@ -1,0 +1,43 @@
+# Helpers for the foredogs kitchen dashboard.
+#
+# Merge these into configuration.yaml. If you already have `input_boolean:`,
+# `input_button:` or `input_text:` blocks, add the entries into those rather
+# than repeating the key.
+#
+# You can also create all three in the UI under
+# Settings -> Devices & services -> Helpers. The entity IDs below are the
+# defaults the generator expects; if you let the UI pick different ones, set
+# FOREDOGS_TRIGGER_ENTITY and FOREDOGS_STATUS_ENTITY in the scheduler unit
+# instead of renaming them.
+#
+# The automations that use them live in kitchen_dashboard_automations.yaml.
+
+input_boolean:
+  e1002_stay_awake:
+    name: E1002 stay awake
+    icon: mdi:sleep-off
+    # Turn this on before flashing or OTA. The device then skips deep sleep and
+    # stays reachable, instead of vanishing for hours between wakes. Turn it
+    # off again once the new firmware has proven itself, or the panel will run
+    # its battery down in a night.
+
+input_button:
+  foredogs_generation_trigger:
+    name: Foredogs generate picture now
+    icon: mdi:dog-side
+    # Pressing this does not call the generator directly. Home Assistant has no
+    # SSH key for the generator host, so the host polls this button's state
+    # every two minutes instead. The state of an input_button is the timestamp
+    # of the last press, which makes the poll idempotent: one press, one image.
+    #
+    # Expect up to two minutes before anything happens, and several more before
+    # the picture appears.
+
+input_text:
+  foredogs_generation_status:
+    name: Foredogs status
+    icon: mdi:information-outline
+    max: 64
+    # The generator host writes "running since HH:MM", "done HH:MM" or
+    # "failed HH:MM" here, so a dashboard card can show whether the last run
+    # worked without opening a log.

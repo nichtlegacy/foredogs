@@ -1,0 +1,2 @@
+"""Standalone macOS foredogs worker."""
+

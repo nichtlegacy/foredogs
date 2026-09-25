@@ -1,0 +1,13 @@
+[Unit]
+Description=Poll Home Assistant for a manual foredogs generation request
+Documentation=https://github.com/nichtlegacy/foredogs
+
+[Timer]
+# Every two minutes: a compromise between feeling responsive and keeping the
+# HTTPS traffic minimal. Generation takes several minutes anyway.
+OnBootSec=1min
+OnUnitActiveSec=2min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

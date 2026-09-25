@@ -1,0 +1,127 @@
+# Private celebrations for the display.
+#
+# Copy this file to generator/config/celebrations.yaml and edit it. It is
+# optional and deliberately untracked: the public calendar is built in — German
+# holidays, Easter-relative days, Mother's Day, Father's Day, the dog days and
+# the seasons all work without this file. Use it for the things only you know:
+# birthdays, anniversaries, and any local date the built-in list gets wrong.
+#
+# An entry reusing a built-in `id` replaces it, so you can also retune or switch
+# off a default from here:
+#
+#   - id: reformationstag
+#     name: Reformationstag
+#     enabled: false
+#
+# Run this to print the resolved calendar for a year and check your dates landed
+# where you expect:
+#
+#   python3 -m foredogs_generator.main --list-celebrations --year 2027
+#
+# ---------------------------------------------------------------------------
+# Fields
+#
+#   id                 stable key, also used for the per-event history
+#   name               shown in the picture and the log
+#   kind               birthday | anniversary | holiday | local | season | event
+#                      `season` = background flavour only, never written text
+#   priority           highest one wins the day and picks the outfit (default 50)
+#   prompt             visual guidance handed to the image model
+#   outfit             feeds art-style selection, e.g. "party hat"
+#   message_template   overrides the wording; {name} {ordinal} {years} {year}
+#   duration_days      for multi-day events (default 1)
+#   enabled            false switches an entry off
+#
+# Dates — pick exactly one form:
+#
+#   month: 6
+#   day: 15                      recurring, no year counting
+#
+#   date: '2001-06-15'           recurring, and {ordinal}/{years} work
+#   date: '15.06.2001'           German spelling is also accepted
+#
+#   rule: nth_weekday            e.g. second Sunday in May
+#   month: 5
+#   weekday: Sonntag
+#   nth: 2                       negative counts from the end (-1 = last)
+#
+#   rule: easter_offset          days from Easter Sunday
+#   offset: 39                   (Christi Himmelfahrt)
+#
+#   rule: advent                 nth Advent Sunday
+#   nth: 1
+#
+# Repeat every N years:
+#
+#   every_n_years: 3
+#   anchor_year: 2027
+# ---------------------------------------------------------------------------
+
+# Note on years: an entry with no birth year keeps the message at
+# "Alles Gute, <name>" rather than counting up. To get "Alles Gute zum 5.
+# Geburtstag, Rex", replace `month`/`day` with a full date:
+#
+#   date: '28.08.2021'
+#
+# Set priorities above the public holidays on purpose where a private date
+# should win a day that is already taken. A birthday that falls on Boxing Day
+# (priority 80) needs something higher to lead the picture.
+
+events:
+  # --- the dog whose display this is ---
+  - id: dog_birthday
+    name: Rex
+    kind: birthday
+    month: 8
+    day: 28
+    priority: 99
+    outfit: party hat
+    prompt: >
+      Rex's own birthday. He is the clear centre of attention: cake with
+      candles, wrapped presents, balloons, a party hat. Celebratory and warm.
+
+  # --- household ---
+  # The dogs stay the subject of every picture. On a human birthday they are
+  # throwing the party, not attending it.
+  - id: partner_birthday
+    name: Alex
+    kind: birthday
+    month: 1
+    day: 23
+    priority: 95
+    prompt: >
+      The dogs have set up a surprise party for Alex: banner, cake, party hats.
+      Mid-winter, so keep it cosy and indoors unless the weather says otherwise.
+
+  - id: sibling_birthday
+    name: Sam
+    kind: birthday
+    month: 6
+    day: 21
+    priority: 95
+    prompt: >
+      The dogs celebrate Sam's birthday. Midsummer, so lean outdoors: garden
+      party, bunting, cake in the sun.
+
+  # --- anniversary ---
+  - id: wedding_anniversary
+    name: Hochzeitstag
+    kind: anniversary
+    month: 7
+    day: 6
+    priority: 88
+    message_template: 'Alles Gute zum Hochzeitstag'
+    prompt: >
+      The dogs celebrate a wedding anniversary: flowers, two rings or a heart
+      motif, a warm midsummer scene.
+
+  # --- the day the dog moved in ---
+  - id: dog_adoption_day
+    name: Rex' Einzugstag
+    kind: anniversary
+    date: '2021-11-14'
+    priority: 70
+    message_template: 'Seit {years} Jahren bei uns, Rex'
+    prompt: >
+      The anniversary of the day Rex moved in: home, blankets, a favourite toy,
+      late-autumn light.

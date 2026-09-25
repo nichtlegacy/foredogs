@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Polls Home Assistant every 2 minutes for a press of
+  the configured input_button and runs the full generate+publish flow.
+
+  Two minutes is a deliberate compromise: fast enough that the button feels
+  responsive (the generation itself takes several minutes anyway), slow enough
+  that the poll is invisible — one small HTTPS request every two minutes.
+
+  Install:
+      cp scripts/macos/com.foredogs.trigger.plist ~/Library/LaunchAgents/
+      launchctl load ~/Library/LaunchAgents/com.foredogs.trigger.plist
+
+  Watch:
+      tail -f "logs/trigger_watch.log"
+
+  Stop:
+      launchctl unload ~/Library/LaunchAgents/com.foredogs.trigger.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.foredogs.trigger</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>-lc</string>
+        <!-- Login shell so PATH includes Homebrew (codex lives there). Tokens are
+             read from files rather than embedded here. -->
+        <string>export FOREDOGS_HA_TOKEN="$(cat ~/.config/foredogs/ha_token 2>/dev/null)"; export FOREDOGS_IMMICH_KEY="$(cat ~/.config/foredogs/immich_key 2>/dev/null)"; exec "$HOME/opt/foredogs/generator/scripts/trigger_watch.sh"</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>120</integer>
+
+    <!-- Check once at load, so a press made while the Mac was off is picked up
+         as soon as it comes back rather than up to two minutes later. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/foredogs-trigger.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/foredogs-trigger.err.log</string>
+
+    <!-- A generation at max reasoning effort can take several minutes; do not
+         let launchd kill it mid-run. -->
+    <key>ExitTimeOut</key>
+    <integer>2400</integer>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

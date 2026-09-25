@@ -1,0 +1,123 @@
+# Private celebrations for foredogs.
+#
+# Copy to /config/foredogs_data/celebrations.yaml and edit. The file is optional
+# — without it only the built-in public holidays in foredogs.py apply.
+#
+# Each event needs an `id` (stable, used as the history key) and a `name`.
+# The date can be given three ways:
+#
+#   month: 6
+#   day: 15                      recurring, no year counting
+#
+#   date: '2001-06-15'           recurring, and {ordinal}/{years} work
+#   date: '15.06.2001'           German spelling is also accepted
+#
+#   rule: nth_weekday            e.g. second Sunday in May
+#   month: 5
+#   weekday: Sonntag
+#   nth: 2                       negative counts from the end (-1 = last)
+#
+# `priority` decides which event wins when several land on the same day; the
+# highest one also decides who appears in the scene.
+#
+# `people` selects reference people by the names used in the
+# generate_dog_picture service call:
+#   default   leave the normal random selection alone (the default)
+#   all       every configured person
+#   none      dogs only
+#   [Alex]     these specific people
+#
+# `message_template` placeholders: {name} {ordinal} {years} {year}
+# German ordinals are just the number plus a period, so {ordinal} gives "25.".
+
+events:
+  # --- birthdays -----------------------------------------------------------
+  - id: geburtstag-alex
+    name: Alex
+    kind: birthday
+    date: '1995-03-12'
+    # Default template for birthdays is already
+    # "Alles Gute zum {ordinal} Geburtstag, {name}", so this is only here to
+    # show how to override it.
+    message_template: 'Alles Gute zum {ordinal} Geburtstag, {name}!'
+    prompt: >-
+      Rex throws Alex a birthday scene. Cake, candles or presents belong in the
+      picture, integrated into the art style rather than pasted on top.
+    people: [Alex]
+    priority: 90
+
+  - id: geburtstag-rex
+    name: Rex
+    kind: birthday
+    # Adjust to Rex's real date; without a year there is no age counting.
+    month: 8
+    day: 4
+    message_template: 'Alles Gute zum Geburtstag, Rex!'
+    prompt: >-
+      It is the dog's own birthday. He is the guest of honour — party hat, a
+      bowl of treats, other dogs celebrating him.
+    people: none
+    priority: 95
+
+  # --- anniversaries -------------------------------------------------------
+  - id: family-anniversary
+    name: Family anniversary
+    kind: anniversary
+    date: '2001-06-15'
+    message_template: 'Happy {ordinal} anniversary'
+    prompt: >-
+      A warm group portrait: everyone together, looking towards the viewer.
+    people: all
+    priority: 80
+
+  - id: rex-einzugstag
+    name: Rex' Einzugstag
+    kind: anniversary
+    # A full date (not just month+day) is required for {years} to work —
+    # without the start year the counter has nothing to count from and the
+    # message falls back to the plain name.
+    date: '2019-05-20'
+    message_template: 'Seit {years} Jahren bei uns, Rex'
+    prompt: >-
+      A quiet, affectionate homecoming scene. Nostalgic rather than a party.
+    people: default
+    priority: 60
+
+  # --- variable-date holidays ---------------------------------------------
+  # These are the ones the fixed HOLIDAYS table in foredogs.py cannot express.
+  - id: muttertag
+    name: Muttertag
+    kind: holiday
+    rule: nth_weekday
+    month: 5
+    weekday: Sonntag
+    nth: 2
+    message_template: 'Alles Liebe zum Muttertag'
+    prompt: >-
+      Flowers, breakfast in bed, or a handmade card — affectionate and specific,
+      not a generic bouquet.
+    people: [Sam]
+    priority: 70
+
+  - id: vatertag
+    name: Vatertag
+    kind: holiday
+    # Ascension Day in Germany; it moves with Easter, so the date has to be
+    # updated yearly or left as an approximation.
+    month: 5
+    day: 14
+    message_template: 'Alles Gute zum Vatertag'
+    prompt: >-
+      A hiking or beer-garden outing in the German Vatertag tradition, with the
+      dogs pulling the traditional handcart.
+    people: [Robin]
+    priority: 70
+
+  # Disabled events stay in the file as a record without taking effect.
+  - id: beispiel-deaktiviert
+    name: Beispiel
+    kind: event
+    month: 1
+    day: 1
+    enabled: false
+    prompt: 'Not used; kept as a formatting example.'

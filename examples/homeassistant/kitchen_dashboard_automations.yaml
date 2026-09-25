@@ -1,0 +1,159 @@
+# Automations for the reTerminal E1002 kitchen dashboard.
+#
+# Append these to automations.yaml, or paste each one into the UI editor via
+# "Edit in YAML". The helpers they reference live in
+# kitchen_dashboard_helpers.yaml, which goes into configuration.yaml.
+#
+# Entity IDs here are placeholders. Replace weather.forecast_home, the
+# sensor.e1002_* entities and the waste entities with your own.
+#
+# Two of the three automations below are all you need if the pictures are
+# generated on a separate host (the usual setup). The third is only for
+# installs that generate inside Home Assistant instead.
+
+
+# ---------------------------------------------------------------------------
+# 1. Render the composite PNG.
+#
+# Costs nothing: no model is called. It only composites the already-generated
+# picture with current weather, waste dates and battery.
+#
+# The panel also triggers this itself on every wake, so this schedule is mainly
+# a safety net that keeps the file fresh even when the display is flat or off.
+# ---------------------------------------------------------------------------
+- alias: E1002 render dashboard
+  id: e1002_render_dashboard
+  description: >-
+    Composite the cached picture with live weather and waste data. Free.
+  triggers:
+    - trigger: time_pattern
+      minutes: /30
+    # Re-render as soon as a new picture lands, so the panel does not wait for
+    # the next half hour. The generator host writes "done HH:MM" here when a
+    # run finishes.
+    - trigger: state
+      entity_id: input_text.foredogs_generation_status
+      id: generation_finished
+  conditions:
+    - condition: or
+      conditions:
+        # Nothing looks at the panel overnight and nothing on it changes, so
+        # the periodic render is limited to waking hours...
+        - condition: and
+          conditions:
+            - condition: trigger
+              id: generation_finished
+            - condition: template
+              value_template: >-
+                {{ states('input_text.foredogs_generation_status')
+                   is match('done') }}
+        # ...but a finished generation always renders, whatever the hour.
+        - condition: time
+          after: "05:30:00"
+          before: "22:15:00"
+  actions:
+    - action: script.foredogs_render_dashboard
+      data: {}
+  mode: single
+
+
+# ---------------------------------------------------------------------------
+# 2. Low battery warning.
+#
+# At roughly a month per charge there is no reason to be surprised by an empty
+# cell. The `for:` guard avoids firing on a single noisy ADC reading.
+# ---------------------------------------------------------------------------
+- alias: E1002 battery low
+  id: e1002_low_battery
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.e1002_playground_battery_level
+      below: 15
+      for: "00:30:00"
+  conditions: []
+  actions:
+    - action: persistent_notification.create
+      data:
+        title: E1002 battery low
+        message: >-
+          The kitchen display is at
+          {{ states('sensor.e1002_playground_battery_level') | round(0) }}%.
+          Time to charge it.
+  mode: single
+
+
+# ---------------------------------------------------------------------------
+# 3. OPTIONAL — generate inside Home Assistant.
+#
+# Only for installs without a separate generator host. If you run the generator
+# on a Mac or a Linux box, that host schedules itself (see docs/mac-pipeline.md)
+# and this automation should not exist: two schedules means two pictures a day
+# and two bills.
+#
+# Unlike the two above, this one calls a model and costs money per run.
+# ---------------------------------------------------------------------------
+- alias: Generate foredogs picture
+  id: generate_foredogs
+  description: Generate the daily illustration, then render and push the dashboard
+  triggers:
+    - trigger: time
+      at: "05:00:00"
+    - trigger: state
+      entity_id: input_button.foredogs_generation_trigger
+  conditions: []
+  actions:
+    - action: weather.get_forecasts
+      data:
+        type: daily
+      target:
+        entity_id: weather.forecast_home
+      response_variable: todays_forecast
+
+    - action: foredogs.generate_dog_picture
+      data:
+        # The key for whatever endpoint base_url points at. Keep it in
+        # secrets.yaml; never inline it here.
+        gemini_api_key: !secret foredogs_api_key
+        # Omit base_url for Google's public endpoint, or set it to OpenAI,
+        # LiteLLM, OpenRouter, Ollama or a local proxy.
+        # base_url: https://api.openai.com/v1
+        # text_model: gpt-4o-mini
+        # image_model: gpt-image-1
+        location: Berlin, Germany
+        forecast: "{{ todays_forecast['weather.forecast_home'].forecast[0] }}"
+        dog_names:
+          - Rex
+        dog_descriptions:
+          - Rex is a cheeky but warm-hearted dog.
+        input_image_paths:
+          - /config/foredogs_data/input_images/rex_1.jpg
+          - /config/foredogs_data/input_images/rex_2.jpg
+          - /config/foredogs_data/input_images/rex_3.jpg
+          - /config/foredogs_data/input_images/rex_4.jpg
+        # Optional: occasionally put a person in the scene.
+        person_names:
+          - Alex
+        person_descriptions:
+          - Alex, glasses and short dark hair.
+        person_image_paths:
+          - /config/foredogs_data/input_images/alex_1.jpg
+        person_inclusion_probability: 0.4
+        image_gen_aspect_ratio: "16:9"
+        image_gen_resolution: 1K
+        # The dashboard renderer crops and dithers itself, so ask for the raw
+        # 16:9 frame and let the composite handle the panel format.
+        final_image_size: 1200x675
+        display_profile: spectra6
+
+    - delay: "00:00:05"
+
+    - action: script.foredogs_render_dashboard
+      data: {}
+
+    # Wake the panel so the new picture is up before anyone walks in. This
+    # only succeeds while the device is awake; otherwise it picks the image up
+    # on its next wake. Rename the action to match your device.
+    - action: esphome.e1002_playground_refresh_now
+      data: {}
+      continue_on_error: true
+  mode: single

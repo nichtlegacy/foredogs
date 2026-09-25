@@ -1,0 +1,8 @@
+# Loads default set of integrations. Do not remove.
+default_config:
+
+foredogs:
+
+automation: !include automations.yaml
+scene: !include scenes.yaml
+script: !include scripts.yaml

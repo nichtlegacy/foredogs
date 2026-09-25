@@ -1,0 +1,11 @@
+{
+  "condition": "partlycloudy",
+  "datetime": "2026-06-23T10:00:00+00:00",
+  "wind_bearing": 13.6,
+  "uv_index": 7.1,
+  "temperature": 27.5,
+  "templow": 21.1,
+  "wind_speed": 9.4,
+  "precipitation": 0.0,
+  "humidity": 58
+}

@@ -1,0 +1,946 @@
+﻿# reTerminal E1002 — kitchen dashboard, battery powered
+#
+# The device is a thin client: Home Assistant renders the full 800x480 PNG
+# (foredogs.render_dashboard) and this firmware only fetches and shows it.
+#
+# Battery strategy, since there is no USB power in the kitchen:
+#   - wake once a day at 05:45, right after the Mac generates the morning image
+#   - sleep the remaining ~23.5 h; e-paper holds its image with no power
+#   - the header deliberately carries nothing time-of-day dependent, so a daily
+#     repaint is enough: date, the day's forecast, waste dates, sunrise/sunset
+#   - weekly panel-care clean to fight Spectra 6 ghosting
+#
+# Measured: 0.17 %/h with the device sleeping properly, i.e. ~3.3 mA and about
+# 25 days per charge. The sleep floor dominates — one refresh costs ~0.6 mAh,
+# while 24 h of sleep costs ~80 mAh — so the cadence matters far less than
+# actually reaching deep sleep. The octal PSRAM is what keeps that floor high.
+#
+# Flash: ESPHOME_BUILD_PATH=/tmp/esphome-build \
+#          esphome run esp/e1002-kitchen.yaml --device /dev/cu.usbserial-210
+#
+# NOTE: the [Github] bracket in the repo path breaks ESP-IDF kconfgen, so
+# ESPHOME_BUILD_PATH must point at a bracket-free directory.
+
+substitutions:
+  # Kept stable across configs so HA reuses one device and one entity set.
+  device_name: e1002-playground
+  friendly_name: "Kitchen Display"
+  timezone: "Europe/Berlin"
+
+  # The dashboard URL lives in secrets.yaml, not here.
+  #
+  # Two reasons. It names a host on your network, which does not belong in a
+  # shared repository; and it should almost always be an IP address rather than
+  # a .local name, because the ESP32's HTTP client does not resolve other hosts
+  # over mDNS. A hostname that works from your laptop can still fail here.
+
+  # One refresh a day, shortly after the Mac finishes generating the morning
+  # image. The panel holds its picture without power, so a daily repaint is all
+  # the content actually needs — the header deliberately carries nothing
+  # time-of-day dependent.
+  #
+  # Everything the display shows changes at most once a day: the image, the
+  # date, the day's forecast, the waste dates, sunrise/sunset. Refreshing more
+  # often only re-drew identical pixels.
+  refresh_hour: "5"
+  refresh_minute: "45"
+  # Fallback if the scheduled slot is missed (device off, no WiFi, no HA time):
+  # sleep this long and try again rather than waiting a whole day.
+  retry_minutes: "60"
+
+  # The Home Assistant script the device asks for a fresh render before it
+  # downloads. Only the object_id, without the "script." domain.
+  #
+  # Keeping the entity wiring — weather entity, waste sensors, battery — on the
+  # Home Assistant side means it can be changed without reflashing. It also has
+  # to live there: ESPHome's homeassistant.action can only send flat string
+  # key/values, and the waste-calendar configuration is a list of mappings.
+  render_script: "foredogs_render_dashboard"
+
+  # Pages are not configured here. How many exist is Home Assistant's business,
+  # because it is what draws them; the device only tracks which one it is
+  # showing — the current_page global — and asks for that one.
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  on_boot:
+    # priority 600: the battery rail (GPIO21) must be high before GPIO1 is
+    # sampled, otherwise the ADC reads nothing at all.
+    - priority: 600
+      then:
+        # Enable the divider early, but do not read yet: at this point WiFi is
+        # about to start and the rail has not settled.
+        - output.turn_on: bsp_battery_enable
+    - priority: -100
+      then:
+        - light.turn_on: onboard_led
+        - script.execute: wake_cycle
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+logger:
+  level: INFO
+  hardware_uart: UART0 # CH340K bridge sits on UART0
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+  # Required for homeassistant.action to work at all. Without it ESPHome does not
+  # even compile the outbound-service-call code, so the render request the device
+  # makes on every wake was silently doing nothing — the panel kept fetching
+  # whatever the HA-side automation had last rendered.
+  homeassistant_services: true
+  # The device also reads input_boolean.e1002_stay_awake, which needs this.
+  homeassistant_states: true
+  # Let HA trigger a refresh out of band (e.g. right after the 05:00 image
+  # generation) without waiting for the next wake.
+  actions:
+    - action: refresh_now
+      then:
+        - script.execute: force_refresh
+    - action: panel_clean
+      then:
+        - script.execute: panel_clean
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# Lower the mark-as-good threshold below the length of one wake cycle.
+#
+# By default ESPHome waits 60 s before considering a new firmware valid, and
+# rolls back otherwise. A wake here lasts roughly 40 s (WiFi, render request,
+# download, 20 s repaint) and then deep-sleeps — so the threshold was never
+# reached and every OTA silently reverted to the previous image on the next
+# boot. 20 s is comfortably inside a normal cycle while still catching a
+# firmware that crashes immediately.
+safe_mode:
+  boot_is_good_after: 20s
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # Signal at the kitchen wall measured around -85 dBm; be patient rather than
+  # rebooting into a loop that drains the cell.
+  reboot_timeout: 0s
+  ap:
+    ssid: "E1002 Kitchen Fallback"
+    password: !secret fallback_ap_password
+
+captive_portal:
+
+time:
+  - platform: homeassistant
+    id: ha_time
+    timezone: ${timezone}
+
+# --- HARDWARE MAP (reTerminal E1002) ---
+spi:
+  clk_pin: GPIO7
+  mosi_pin: GPIO9
+
+i2c:
+  scl: GPIO20
+  sda: GPIO19
+
+output:
+  - platform: gpio
+    pin: GPIO6
+    id: led_output
+    inverted: true
+  - platform: gpio
+    pin: GPIO21
+    id: bsp_battery_enable
+  - platform: ledc
+    pin: GPIO45
+    id: buzzer_pwm
+    frequency: 2000Hz
+
+light:
+  - platform: binary
+    name: "Onboard LED"
+    id: onboard_led
+    output: led_output
+    internal: true
+
+http_request:
+  verify_ssl: false
+  timeout: 25s
+  watchdog_timeout: 30s
+
+# --- STATE THAT MUST SURVIVE DEEP SLEEP ---
+# RTC-backed globals: main RAM is lost on every sleep cycle, so anything the
+# next wake needs to compare against has to be restored from flash.
+globals:
+  - id: refresh_count
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: wake_count
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: last_clean_day
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: image_ready
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  # 0 = draw the dashboard, 1 = flush white, 2 = flush black (panel_clean).
+  - id: panel_mode
+    type: int
+    restore_value: no
+    initial_value: '0'
+  # Buzzer feedback. Off by default: in a kitchen a chirp on every refresh is
+  # noise, and the panel taking 20 s to repaint is feedback enough. Survives
+  # deep sleep so the setting sticks.
+  - id: sounds_enabled
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  # Which page is on the panel: 1 is home (the daily picture, waste, forecast),
+  # 2 is the weather detail (24-hour curve, week band).
+  #
+  # Restored across deep sleep, because the point of a page is that it stays put
+  # until something turns it. What turns it is the right white button, and only
+  # that one can: GPIO4 doubles as the wake pin, so it is the single press this
+  # panel can feel while it is asleep.
+  #
+  # A scheduled wake resets this to 1. Page 2 is something you ask for; the
+  # morning should be the picture.
+  - id: current_page
+    type: int
+    restore_value: yes
+    initial_value: '1'
+
+# --- SENSORS ---
+sensor:
+  - platform: sht4x
+    address: 0x44
+    temperature:
+      name: "Temperature"
+      id: temp_local
+    humidity:
+      name: "Humidity"
+      id: hum_local
+    update_interval: 60s
+
+  - platform: adc
+    pin: GPIO1
+    id: battery_voltage
+    # Exposed as a diagnostic. When the percentage goes missing this is what
+    # says whether the ADC read nothing at all or the curve rejected the value.
+    name: "Battery Voltage"
+    entity_category: diagnostic
+    unit_of_measurement: "V"
+    device_class: voltage
+    accuracy_decimals: 3
+    attenuation: 12db
+    update_interval: never
+    filters:
+      # The cell sits behind a 1:2 divider.
+      - multiply: 2.0
+      # Average the burst of samples measure_battery takes, so one noisy ADC
+      # reading cannot move the displayed percentage by several points.
+      #
+      # send_every: 1 publishes a running average from the first sample rather
+      # than only on every 5th. With send_every: 5 the burst had to land exactly
+      # five samples; a single dropped one left the sensor at NaN until the next
+      # day's wake.
+      - sliding_window_moving_average:
+          window_size: 5
+          send_every: 1
+
+  - platform: template
+    # Exposed (not internal) so the dashboard renderer can draw the gauge.
+    name: "Battery Level"
+    id: battery_level
+    unit_of_measurement: "%"
+    icon: "mdi:battery"
+    device_class: battery
+    state_class: measurement
+    lambda: |-
+      const float v = id(battery_voltage).state;
+      if (isnan(v)) {
+        // Publishing NaN would blank the entity in HA and look identical to a
+        // device that is simply asleep. Keep the last good value instead.
+        ESP_LOGW("battery", "Voltage is NaN; keeping previous level");
+        return {};
+      }
+      return v;
+    update_interval: never
+    filters:
+      - calibrate_linear:
+          - 4.15 -> 100.0
+          - 3.96 -> 90.0
+          - 3.91 -> 80.0
+          - 3.85 -> 70.0
+          - 3.80 -> 60.0
+          - 3.75 -> 50.0
+          - 3.68 -> 40.0
+          - 3.58 -> 30.0
+          - 3.49 -> 20.0
+          - 3.41 -> 10.0
+          - 3.30 -> 5.0
+          - 3.27 -> 0.0
+      - clamp:
+          min_value: 0
+          max_value: 100
+
+  - platform: template
+    name: "Display Refreshes"
+    id: refresh_counter
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    lambda: 'return id(refresh_count);'
+    update_interval: 60s
+
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    id: wifi_rssi
+    entity_category: diagnostic
+    update_interval: 60s
+
+# Set by HA: while this is on the device stays awake, so OTA and config work
+# does not mean racing a 30-minute sleep window.
+binary_sensor:
+  - platform: homeassistant
+    id: stay_awake
+    entity_id: input_boolean.e1002_stay_awake
+    internal: true
+
+  - platform: gpio
+    pin:
+      number: GPIO3 # green
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Button Green"
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      - logger.log: "Green: manual refresh"
+      - script.execute: force_refresh
+
+  - platform: gpio
+    pin:
+      number: GPIO4 # right white — doubles as the deep sleep wake pin
+      mode: INPUT_PULLUP
+      inverted: true
+      allow_other_uses: true
+    name: "Button White Right"
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      # On a wake caused by this very button the press is already spent: the
+      # page was turned in wake_cycle before the GPIO was even sampled. Acting
+      # on it again here would turn the page straight back.
+      #
+      # Fifteen seconds is far longer than a boot and far shorter than the ~40 s
+      # the device stays up, so a deliberate press on an awake panel still
+      # works. Same shape as the guard on the five-minute sleep net.
+      - if:
+          condition:
+            lambda: 'return millis() > 15000;'
+          then:
+            - logger.log:
+                level: INFO
+                format: "White right: turn the page"
+            - script.execute: turn_page
+          else:
+            - logger.log: "White right: press already served by the wake"
+
+  - platform: gpio
+    pin:
+      number: GPIO5 # left white
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Button White Left"
+    filters:
+      # Long press only, so a brush past the display cannot trigger the
+      # 3-refresh ghosting clean.
+      - delayed_on: 3s
+    on_press:
+      - logger.log: "White left long press: panel clean"
+      - script.execute: panel_clean
+
+deep_sleep:
+  id: deep_sleep_ctrl
+  wakeup_pin:
+    number: GPIO4
+    allow_other_uses: true
+  wakeup_pin_mode: INVERT_WAKEUP
+  # Duration is always set explicitly by sleep_evaluation; never automatic,
+  # so a wake spent waiting on WiFi cannot sleep early and strand the render.
+
+online_image:
+  - id: dashboard_image
+    url: !secret dashboard_url
+    format: PNG
+    type: RGB565
+    # This is the *download chunk* buffer, not the image size — the PNG is
+    # decoded as it streams, so a 130 KB file is fine at the 64 KB maximum.
+    # The decoded frame lives in PSRAM (800*480*2 = 768 KB as RGB565).
+    buffer_size: 65536
+    update_interval: never
+    on_download_finished:
+      - logger.log: "Dashboard image downloaded"
+      - lambda: 'id(image_ready) = true;'
+    on_error:
+      - logger.log:
+          level: ERROR
+          format: "Dashboard image download FAILED"
+      - lambda: 'id(image_ready) = false;'
+
+display:
+  - platform: epaper_spi
+    id: epaper
+    model: Seeed-reTerminal-E1002
+    update_interval: never
+    # Panel-clean flush modes are driven through this global.
+    lambda: |-
+      switch (id(panel_mode)) {
+        case 1:
+          it.fill(Color(255, 255, 255));
+          return;
+        case 2:
+          it.fill(Color(0, 0, 0));
+          return;
+        default:
+          break;
+      }
+      it.image(0, 0, id(dashboard_image));
+
+script:
+  # ---- main wake path ----
+  - id: wake_cycle
+    mode: single
+    then:
+      - lambda: 'id(wake_count) += 1;'
+
+      # Which page this wake is for, decided before anything else so the render
+      # request further down asks for the right one.
+      #
+      # A pin wake means someone pressed the right button, which is a request
+      # to turn the page. A timer wake - or a cold boot, which reports no cause
+      # at all - is the scheduled refresh and always shows the picture.
+      #
+      # ESP32-S3 reports pin wakes as EXT1 or GPIO depending on how the deep
+      # sleep component armed them, so all three variants count.
+      - lambda: |-
+          const auto cause = esp_sleep_get_wakeup_cause();
+          const bool from_button = cause == ESP_SLEEP_WAKEUP_EXT0 ||
+                                   cause == ESP_SLEEP_WAKEUP_EXT1 ||
+                                   cause == ESP_SLEEP_WAKEUP_GPIO;
+          if (from_button) {
+            id(current_page) = (id(current_page) == 1) ? 2 : 1;
+            ESP_LOGI("page", "Button wake: turning to page %d", id(current_page));
+          } else if (id(current_page) != 1) {
+            id(current_page) = 1;
+            ESP_LOGI("page", "Scheduled wake: back to page 1");
+          }
+
+      - logger.log:
+          level: INFO
+          format: "Wake #%d, page %d (refreshes so far: %d)"
+          args: ['id(wake_count)', 'id(current_page)', 'id(refresh_count)']
+
+      # HA time drives both the night window and the render, so wait for it.
+      # Wait for the link first: a fetch issued before the IP stack is up fails
+      # outright, and on this weak signal association can take ~20 s.
+      - wait_until:
+          condition:
+            wifi.connected:
+          timeout: 90s
+      - wait_until:
+          condition:
+            lambda: 'return id(ha_time).now().is_valid();'
+          timeout: 40s
+      # The RTC retains the time across deep sleep, so the check above passes
+      # immediately and does not imply Home Assistant is reachable yet. Everything
+      # after this point needs the API: the render request, the stay_awake state
+      # and the page globals.
+      - wait_until:
+          condition:
+            api.connected:
+          timeout: 45s
+
+      - if:
+          condition:
+            and:
+              - lambda: 'return !id(ha_time).now().is_valid();'
+              # Only bail out when Home Assistant is genuinely unreachable.
+              #
+              # Testing stay_awake here does not work: it is a homeassistant
+              # platform sensor, so it reads off locally until Home Assistant
+              # pushes the real value, and on a cold boot that has not happened
+              # yet. The device slept for fifteen minutes with the flag on.
+              #
+              # api.connected is local knowledge and true or false immediately.
+              # With a connection the cycle carries on - the render request and
+              # sleep_evaluation both work without a valid clock, and
+              # sleep_evaluation checks stay_awake properly. Without one there
+              # is nothing to draw and nobody to ask, so the short retry is
+              # right.
+              - not:
+                  - api.connected:
+          then:
+            # No time and no Home Assistant: no way to reason about night or
+            # staleness, and nothing to fetch. Sleep a short while and try
+            # again rather than burning the wake.
+            - logger.log:
+                level: INFO
+                format: "No HA time and no API; short retry sleep"
+            - light.turn_off: onboard_led
+            - deep_sleep.enter:
+                id: deep_sleep_ctrl
+                sleep_duration: 15min
+
+      - script.execute: weekly_clean_check
+      - script.wait: weekly_clean_check
+
+      - script.execute: fetch_and_maybe_refresh
+      - script.wait: fetch_and_maybe_refresh
+
+      # Measure the battery here, not at boot: the rail is settled and the radio
+      # is quiet, so the reading reflects charge instead of momentary load.
+      - script.execute: measure_battery
+      - script.wait: measure_battery
+
+      - script.execute: sleep_evaluation
+
+  # ---- battery ----
+  - id: measure_battery
+    mode: single
+    then:
+      - delay: 2s # let the rail settle after the refresh finishes
+      # Make sure the divider is actually powered. It is switched on at boot,
+      # but a wake that skipped or reordered that step would otherwise measure a
+      # dead rail and report a flat battery.
+      - output.turn_on: bsp_battery_enable
+      - delay: 200ms
+      # Several samples: a single ADC reading on this divider scatters by a few
+      # percent, which is the same order as a day's real discharge.
+      #
+      # Eight rather than five: the moving average is over five, so this leaves
+      # room for three to be dropped and still produce a full-window value.
+      # There is one reading a day, so a wasted second here costs nothing.
+      - repeat:
+          count: 8
+          then:
+            - component.update: battery_voltage
+            - delay: 300ms
+      - component.update: battery_level
+      - if:
+          condition:
+            lambda: 'return isnan(id(battery_voltage).state);'
+          then:
+            # Loud on purpose. This is the failure that hid for three days: the
+            # percentage silently stopped updating while the display kept
+            # showing a stale value from the renderer's cache.
+            - logger.log:
+                level: ERROR
+                format: "Battery: ADC returned no value after 8 samples (GPIO1 / divider?)"
+          else:
+            - logger.log:
+                level: INFO
+                format: "Battery: %.3f V -> %.1f%%"
+                args: ['id(battery_voltage).state', 'id(battery_level).state']
+
+  # ---- ask HA to re-render, then decide whether to repaint ----
+  - id: fetch_and_maybe_refresh
+    mode: single
+    then:
+      - lambda: 'id(image_ready) = false;'
+
+      # Wait for the API client, then give it a moment to subscribe.
+      #
+      # api.connected goes true as soon as the encrypted handshake finishes, but
+      # Home Assistant subscribes to device-initiated actions a little later. A
+      # call in that gap is dropped ("client has not subscribed to actions
+      # (yet)"), which is why the device kept showing whatever the previous cycle
+      # had rendered. There is no condition for the subscription itself, so this
+      # waits out the gap.
+      - wait_until:
+          condition:
+            api.connected:
+          timeout: 30s
+      # Six seconds, not three. api.connected goes true when the encrypted
+      # handshake finishes, but Home Assistant subscribes to device-initiated
+      # actions a little later, and a call in that gap is dropped silently.
+      #
+      # Three was enough while every render was the same page: a dropped
+      # request meant repainting what was already there. Now that the request
+      # carries which page to draw, losing it means downloading whatever
+      # dashboard.png still holds - observed once as a 304 that kept the old
+      # page, and once as the panel painting the *previous* page. Measured on
+      # a cold boot the gap ran to 3.05 s, which is exactly the coin flip.
+      - delay: 6s
+
+      # Ask HA to re-render before fetching, so the PNG is current. The device
+      # deliberately passes no parameters: ESPHome's homeassistant.action can
+      # only send flat string key/values, and the waste-calendar config is a
+      # list of mappings. Keeping the entity wiring in the HA script also means
+      # it can be changed without reflashing.
+      #
+      # Two static branches rather than one templated call: ESPHome can only
+      # send flat string key/values here, and a literal is one less moving part
+      # than a lambda that has to stringify an int.
+      - if:
+          condition:
+            lambda: 'return id(current_page) == 2;'
+          then:
+            - homeassistant.action:
+                action: script.${render_script}
+                data:
+                  page: "2"
+          else:
+            - homeassistant.action:
+                action: script.${render_script}
+                data:
+                  page: "1"
+      - logger.log:
+          level: INFO
+          format: "Render requested from HA for page %d"
+          args: ['id(current_page)']
+      # Wait for the render to finish before fetching, and wait long enough for
+      # the page that was actually asked for.
+      #
+      # There is one dashboard.png and it holds whatever was rendered last, so
+      # fetching early does not fail cleanly - it either gets a 304 and keeps
+      # the page already on the glass, or it downloads the *previous* page and
+      # paints that. Both were observed on a device that waited a flat 8 s.
+      #
+      # Measured on this installation: page 2 draws chrome only and takes
+      # 0.2-0.3 s; page 1 composites the picture and Atkinson-dithers it, which
+      # takes 8.2-8.4 s. The flat 8 s was therefore a coin flip for page 1.
+      - if:
+          condition:
+            lambda: 'return id(current_page) == 2;'
+          then:
+            - delay: 3s
+          else:
+            - delay: 13s
+
+      # Three attempts: the first fetch after a wake often lands before the IP
+      # stack is fully up and fails with "Not connected to network", even though
+      # wifi.connected already reports true.
+      #
+      # The per-attempt wait is 8 s rather than 30: a download that is going to
+      # succeed on this link finishes in about two, so a longer wait only makes
+      # a genuine miss expensive to notice.
+      - repeat:
+          count: 3
+          then:
+            - if:
+                condition:
+                  lambda: 'return !id(image_ready);'
+                then:
+                  - component.update: dashboard_image
+                  - wait_until:
+                      condition:
+                        lambda: 'return id(image_ready);'
+                      timeout: 8s
+                  - if:
+                      condition:
+                        lambda: 'return !id(image_ready);'
+                      then:
+                        - logger.log:
+                            level: INFO
+                            format: "Download failed or not ready; retrying in 4s"
+                        - delay: 4s
+
+      - if:
+          condition:
+            lambda: 'return !id(image_ready);'
+          then:
+            - logger.log:
+                level: INFO
+                format: "No image after retries; leaving the current screen untouched"
+          else:
+            # Always repaint. Change detection was dropped: it cost an extra
+            # HTTP round-trip per wake, and at a 30-minute cadence the saved
+            # refresh is worth spending anyway — otherwise the header clock and
+            # the "next rain" countdown go stale between real weather changes.
+            - script.execute: do_refresh
+            - script.wait: do_refresh
+
+  - id: do_refresh
+    # component.update returns immediately while the panel state machine runs
+    # for ~20 s. The trailing delay keeps this script (and mode:single) holding
+    # the guard, otherwise a second trigger lands mid-refresh and the display
+    # logs "Display already in state POWER_OFF".
+    mode: single
+    then:
+      - lambda: 'id(refresh_count) += 1; id(panel_mode) = 0;'
+      - light.turn_on: onboard_led
+      - component.update: epaper
+      - delay: 25s
+      - light.turn_off: onboard_led
+
+  # ---- button-triggered immediate refresh ----
+  - id: force_refresh
+    mode: single
+    then:
+      - script.execute: beep_ack
+      - script.execute: fetch_and_maybe_refresh
+
+  # ---- page turn ----
+  - id: turn_page
+    mode: single
+    then:
+      - lambda: |-
+          id(current_page) = (id(current_page) == 1) ? 2 : 1;
+          ESP_LOGI("page", "Turning to page %d", id(current_page));
+      - script.execute: beep_ack
+      # The same fetch path as everything else: ask Home Assistant to render,
+      # download, repaint. It reads current_page, so nothing else is needed.
+      - script.execute: fetch_and_maybe_refresh
+      - script.wait: fetch_and_maybe_refresh
+      # And then decide about sleep again. A turn triggered from the button
+      # while the device was already awake happens after wake_cycle has gone
+      # past its own sleep_evaluation, so without this the panel would stay up
+      # until the five-minute net noticed. sleep_evaluation is mode: single, so
+      # if the wake cycle is already in it this execute is simply dropped.
+      - script.execute: sleep_evaluation
+
+  # ---- Spectra 6 ghosting care ----
+  - id: panel_clean
+    mode: single
+    then:
+      - script.execute: beep_clean
+      - logger.log: "Panel clean: white"
+      - lambda: 'id(panel_mode) = 1;'
+      - component.update: epaper
+      - delay: 25s
+      - logger.log: "Panel clean: black"
+      - lambda: 'id(panel_mode) = 2;'
+      - component.update: epaper
+      - delay: 25s
+      - logger.log: "Panel clean: white"
+      - lambda: 'id(panel_mode) = 1;'
+      - component.update: epaper
+      - delay: 25s
+      - lambda: 'id(panel_mode) = 0;'
+
+  - id: weekly_clean_check
+    mode: single
+    then:
+      - lambda: |-
+          auto now = id(ha_time).now();
+          if (!now.is_valid()) return;
+
+          // Once a week, in the small hours, when nobody is looking at it.
+          int day_of_year = now.day_of_year;
+          bool due = (id(last_clean_day) == 0) ||
+                     (day_of_year - id(last_clean_day) >= 7) ||
+                     (day_of_year < id(last_clean_day));  // year rollover
+
+          if (due && now.hour >= 3 && now.hour < 5) {
+            ESP_LOGI("clean", "Weekly panel care due (last: day %d)", id(last_clean_day));
+            id(last_clean_day) = day_of_year;
+            id(panel_clean).execute();
+          }
+
+  # ---- sleep ----
+  - id: sleep_evaluation
+    mode: single
+    then:
+      - if:
+          condition:
+            and:
+              - binary_sensor.is_on: stay_awake
+          then:
+            - logger.log:
+                level: INFO
+                format: "stay_awake is on; not sleeping"
+          else:
+            # Never sleep on top of a fetch in flight. A second button press
+            # inside the same wake starts a page turn while this script is
+            # already on its way here, and cutting the power mid-render leaves
+            # the panel showing one page while current_page says the other -
+            # which reads, at the next press, as the button going the wrong
+            # way.
+            - wait_until:
+                condition:
+                  not:
+                    - script.is_running: fetch_and_maybe_refresh
+                timeout: 60s
+
+            # Wait for Home Assistant to send the time before computing the slot.
+            # ha_time is a homeassistant-platform clock, so it is invalid for the
+            # first seconds after boot — computing then fell through to the
+            # 60-minute retry and the device woke 24x a day instead of once,
+            # which is what the ~40% overnight drain actually was.
+            - wait_until:
+                condition:
+                  lambda: 'return id(ha_time).now().is_valid();'
+                timeout: 30s
+            - lambda: |-
+                // Sleep until the next scheduled refresh, rather than on a fixed
+                // interval. One repaint a day is enough: everything on the panel
+                // — image, date, the day's forecast, waste dates, sunrise —
+                // changes at most daily, so waking more often just redrew
+                // identical pixels at ~0.6 mAh a time.
+                auto now = id(ha_time).now();
+                int minutes = ${retry_minutes};
+
+                if (now.is_valid()) {
+                  const int target_h = ${refresh_hour};
+                  const int target_m = ${refresh_minute};
+
+                  int now_total = now.hour * 60 + now.minute;
+                  int target_total = target_h * 60 + target_m;
+                  int delta = target_total - now_total;
+
+                  // Already past today's slot (the normal case, since we only
+                  // wake to serve it) -> aim at tomorrow's.
+                  if (delta <= 0) {
+                    delta += 24 * 60;
+                  }
+
+                  // A slot within a few minutes means we woke early or the
+                  // refresh took a while; do not burn a whole day waiting.
+                  minutes = (delta > 2) ? delta : ${retry_minutes};
+
+                  ESP_LOGI("sleep", "Sleeping %d min until %02d:%02d",
+                           minutes, target_h, target_m);
+                } else {
+                  ESP_LOGW("sleep", "No HA time; retrying in %d min", minutes);
+                }
+
+                id(onboard_led).turn_off();
+                id(deep_sleep_ctrl).set_sleep_duration((uint32_t) minutes * 60 * 1000);
+
+            # Let the API flush before cutting power to the radio.
+            #
+            # measure_battery publishes the level and this script used to sleep
+            # about five milliseconds later, in the same lambda. The state change
+            # was queued but the connection went down before the packet left, so
+            # the device measured a correct percentage every morning and Home
+            # Assistant sat at "unknown" for nine days while the panel kept
+            # drawing a stale value from the renderer's cache.
+            #
+            # Three seconds is far longer than a handful of small state packets
+            # need, and costs about 0.003 mAh a day.
+            - delay: 3s
+            - lambda: 'id(deep_sleep_ctrl).begin_sleep();'
+
+  # ---- buzzer ----
+  - id: beep_ack
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(sounds_enabled);'
+          then:
+            - script.stop: beep_ack
+      - lambda: 'id(buzzer_pwm).update_frequency(2200);'
+      - output.set_level:
+          id: buzzer_pwm
+          level: 45%
+      - delay: 60ms
+      - output.set_level:
+          id: buzzer_pwm
+          level: 0%
+
+  - id: beep_clean
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(sounds_enabled);'
+          then:
+            - script.stop: beep_clean
+      # Descending two-tone, distinct from the single ack beep.
+      - lambda: 'id(buzzer_pwm).update_frequency(2400);'
+      - output.set_level:
+          id: buzzer_pwm
+          level: 45%
+      - delay: 90ms
+      - lambda: 'id(buzzer_pwm).update_frequency(1400);'
+      - delay: 140ms
+      - output.set_level:
+          id: buzzer_pwm
+          level: 0%
+
+interval:
+  # Safety net for a device that is awake when it should not be.
+  #
+  # The design assumes deep sleep reboots the device once a day and on_boot runs
+  # the cycle. If anything leaves it awake — stay_awake during OTA work, a sleep
+  # that never happened — nothing else calls sleep_evaluation, and it stays awake
+  # indefinitely. That cost 32% of the battery in one night: 447 sensor readings
+  # between 22:30 and 06:30, when there should have been none.
+  - interval: 5min
+    then:
+      # Only judge once Home Assistant state has arrived and the boot cycle has
+      # had time to finish. A homeassistant binary_sensor reads as off until HA
+      # pushes the real value, so a tick in that window concluded "awake without
+      # permission" and slept mid-OTA — scheduling the 60-minute retry instead of
+      # the next daily slot.
+      - if:
+          condition:
+            and:
+              - api.connected:
+              - lambda: 'return millis() > 300000;'
+          then:
+            - if:
+                condition:
+                  binary_sensor.is_on: stay_awake
+                then:
+                  # Deliberately awake for OTA or debugging. No timer refresh: at
+                  # a daily cadence there is nothing new to draw between slots.
+                  - logger.log:
+                      level: DEBUG
+                      format: "Awake by request; not sleeping"
+                else:
+                  # Not supposed to be awake. Something went wrong — go back to
+                  # sleep. This is the net that caught the bug which cost 32% of
+                  # the battery in one night.
+                  - logger.log:
+                      level: WARN
+                      format: "Awake without stay_awake; sleeping"
+                  - script.execute: sleep_evaluation
+
+switch:
+  - platform: template
+    name: "Sounds"
+    id: sounds_switch
+    icon: "mdi:volume-high"
+    entity_category: config
+    # Reflects the RTC-backed global, so the state is right after a wake rather
+    # than resetting to the switch's own default.
+    lambda: 'return id(sounds_enabled);'
+    turn_on_action:
+      - lambda: 'id(sounds_enabled) = true;'
+      - script.execute: beep_ack
+    turn_off_action:
+      - lambda: 'id(sounds_enabled) = false;'
+
+button:
+  - platform: template
+    name: "Refresh Dashboard"
+    on_press:
+      - script.execute: force_refresh
+
+  - platform: template
+    name: "Panel Clean"
+    entity_category: config
+    on_press:
+      - script.execute: panel_clean
+
+  - platform: template
+    name: "Sleep Now"
+    entity_category: config
+    on_press:
+      - script.execute: sleep_evaluation

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logs the display's battery level every 15 minutes.
+
+  Exists because a discharge measurement has to outlive the terminal session that
+  started it. Fifteen minutes is fine even though the device only reports every
+  30: a duplicate row costs nothing, and a missed one would leave a gap in the
+  curve.
+
+  Install:
+      cp tools/com.foredogs.batterywatch.plist ~/Library/LaunchAgents/
+      launchctl load ~/Library/LaunchAgents/com.foredogs.batterywatch.plist
+
+  Read:
+      tail -20 ~/.local/state/foredogs/battery.tsv
+
+  Stop when the measurement is done:
+      launchctl unload ~/Library/LaunchAgents/com.foredogs.batterywatch.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.foredogs.batterywatch</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>-lc</string>
+        <string>exec "$HOME/opt/foredogs/tools/battery_watch.sh"</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>900</integer>
+
+    <!-- Take a reading immediately, so the log starts at a known point rather
+         than up to 15 minutes later. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/foredogs-batterywatch.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/foredogs-batterywatch.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

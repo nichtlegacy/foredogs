@@ -1,0 +1,842 @@
+/* foredogs landing page.
+
+   Page layout and materials follow the MediaWatch, AstroBar and ILoveMusic
+   sites (which in turn follow CodexBar, MIT): loose sections split by
+   hairlines, pills, a nav glow that follows the pointer. Dark only.
+
+   The hero is a Seeed Studio reTerminal E1002 rebuilt in markup. Proportions
+   come from the datasheet (176 x 120 mm front) and from Seeed's CAD render
+   (window 162.5 x 98 mm, 6.75 mm sides, 6 mm top, a 16 mm chin); every length
+   inside it is a share of the enclosure's width, so it scales as one object.
+
+   Accents come from the panel: #FFE600 is the renderer's yellow, the one ink
+   that carries the sun, the curve and the yellow bin, and #8DC21F is the green
+   of the refresh button on top of the device. */
+
+@font-face { font-family: "Geist"; src: url("fonts/Geist-Variable.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Geist Mono"; src: url("fonts/GeistMono-Variable.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+
+:root {
+  --bg: #0a0a0c;
+  --ink: #f4f4f6;
+  --ink-2: #b4b4be;
+  --ink-3: #7e7e8a;
+  --ink-4: #585862;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-2: rgba(255, 255, 255, 0.13);
+  --fill: rgba(255, 255, 255, 0.045);
+  --sun: #ffe600;
+  --sun-ink: #fff08a;
+  --leaf: #8dc21f;
+  --ink-blue: #6f8cff;
+
+  --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --header: 64px;
+  --wrap: 1232px;
+  --gutter: clamp(20px, 4vw, 48px);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; scroll-padding-top: 80px; background: var(--bg); -webkit-text-size-adjust: 100%; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+img { max-width: 100%; height: auto; display: block; }
+a { color: inherit; }
+svg { flex-shrink: 0; }
+code, kbd, pre { font-family: var(--mono); }
+figure { margin: 0; }
+[hidden] { display: none !important; }
+
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.wrap { width: 100%; max-width: var(--wrap); margin-inline: auto; padding-inline: var(--gutter); }
+
+.skip { position: absolute; left: -9999px; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; }
+.skip:focus { left: 20px; top: 20px; z-index: 60; }
+
+:where(a, button, input, summary):focus-visible { outline: 2px solid var(--sun); outline-offset: 3px; border-radius: 8px; }
+::selection { background: rgba(255, 230, 0, 0.3); }
+
+/* ---------- type ---------- */
+
+h1, h2, h3 { margin: 0; font-weight: 620; }
+h1 { font-size: clamp(40px, 4.3vw, 66px); line-height: 1.02; letter-spacing: -0.052em; text-wrap: balance; }
+h2 { font-size: clamp(36px, 4.2vw, 58px); line-height: 1.02; letter-spacing: -0.05em; }
+h3 { font-size: 18px; line-height: 1.3; letter-spacing: -0.022em; font-weight: 600; }
+
+.lede { margin: 0; font-size: clamp(17px, 1.35vw, 19px); line-height: 1.5; letter-spacing: -0.012em; color: var(--ink-2); }
+.lede code, .stack-head code, .more code, .step code, .ticks code {
+  font-size: 0.86em; padding: 1px 6px; border-radius: 5px; background: var(--fill); color: var(--ink-2);
+  white-space: nowrap;
+}
+.stack-head a, .more a, .foot a, .step a {
+  color: var(--ink-2);
+  text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px;
+  transition: color 160ms ease, text-decoration-color 160ms ease;
+}
+.stack-head a:hover, .more a:hover, .foot a:hover, .step a:hover { color: var(--ink); text-decoration-color: currentColor; }
+
+/* ---------- buttons ---------- */
+
+.pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 38px; padding: 0 16px;
+  border-radius: 999px;
+  font-size: 14.5px; font-weight: 550; letter-spacing: -0.01em;
+  text-decoration: none; white-space: nowrap;
+  transition: transform 160ms var(--ease), background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+.pill:active { transform: scale(0.97); }
+.pill.lg { height: 46px; padding: 0 22px; font-size: 15.5px; }
+.solid { background: var(--ink); color: #09090b; }
+.solid:hover { background: #fff; }
+.ghost { color: var(--ink-2); border: 1px solid var(--line-2); background: rgba(255, 255, 255, 0.02); }
+.ghost:hover { color: var(--ink); border-color: rgba(255, 255, 255, 0.24); background: var(--fill); }
+
+.icon-btn {
+  display: grid; place-items: center;
+  width: 38px; height: 38px;
+  border-radius: 999px;
+  color: var(--ink-3);
+  transition: color 160ms ease, background-color 160ms ease;
+}
+.icon-btn:hover { color: var(--ink); background: var(--fill); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pill { transition: none; }
+  .pill:active { transform: none; }
+}
+
+/* ---------- header ---------- */
+
+.top {
+  position: fixed; inset: 0 0 auto; z-index: 40;
+  height: var(--header);
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  padding-inline: calc(var(--gutter) - 8px);
+  border-bottom: 1px solid transparent;
+  transition: background-color 240ms ease, border-color 240ms ease;
+}
+.top.scrolled {
+  background: rgba(10, 10, 12, 0.72);
+  -webkit-backdrop-filter: saturate(160%) blur(18px);
+  backdrop-filter: saturate(160%) blur(18px);
+  border-bottom-color: var(--line);
+}
+
+.mark {
+  justify-self: start;
+  display: inline-flex; align-items: center; gap: 10px;
+  height: 40px; padding: 0 12px 0 5px;
+  border-radius: 999px;
+  font-weight: 620; font-size: 15.5px; letter-spacing: -0.025em;
+  text-decoration: none;
+  transition: background-color 160ms ease;
+}
+.mark:hover { background: var(--fill); }
+/* The tile is the page's own black; a hairline keeps its edge. The radius
+   matches the mark's (182 / 944). */
+.mark-icon, .foot-mark svg, .notfound-mark { border-radius: 19.3%; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.mark-icon { display: block; width: 30px; height: 30px; }
+.mark-version {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0;
+  color: var(--ink-3);
+  background: var(--fill);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.top-nav { position: relative; display: flex; gap: 2px; font-size: 14px; letter-spacing: -0.01em; }
+.nav-glow {
+  position: absolute; top: 0; left: 0;
+  height: 100%; width: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.075);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 380ms var(--ease), width 380ms var(--ease), opacity 200ms ease;
+}
+.nav-glow.no-slide { transition: opacity 200ms ease; }
+.top-nav a {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 36px; padding: 0 14px 0 12px;
+  border-radius: 999px;
+  color: var(--ink-3); text-decoration: none;
+  transition: color 220ms ease;
+}
+.top-nav a svg { opacity: 0.7; transition: color 220ms ease, opacity 220ms ease; }
+.top-nav a.lit { color: var(--ink); }
+.top-nav a.lit svg { color: var(--sun); opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .nav-glow { transition: opacity 200ms ease; } }
+
+.top-actions { justify-self: end; display: flex; align-items: center; gap: 8px; }
+.top .pill { height: 40px; }
+.top .icon-btn {
+  width: 40px; height: 40px;
+  color: var(--ink-2);
+  box-shadow: inset 0 0 0 1px var(--line-2);
+  background: rgba(255, 255, 255, 0.02);
+}
+.top .icon-btn:hover { color: var(--ink); background: var(--fill); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24); }
+
+/* ---------- hero ---------- */
+
+/* Copy on the left, the panel on the right, both centred as a pair. */
+.hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(340px, 460px) minmax(0, 780px);
+  justify-content: center;
+  gap: clamp(40px, 5vw, 80px);
+  align-items: center;
+  min-height: min(100svh, 920px);
+  padding: calc(var(--header) + 40px) var(--gutter) 72px;
+  overflow: hidden;
+}
+/* Morning light: warm from the top right, where the panel hangs, and a cool
+   wash on the far side. */
+.hero::before {
+  content: "";
+  position: absolute; inset: 0 0 auto;
+  height: 760px;
+  background:
+    radial-gradient(38% 62% at 74% 24%, rgba(255, 230, 0, 0.13), transparent 70%),
+    radial-gradient(30% 50% at 22% 0%, rgba(70, 100, 255, 0.10), transparent 70%);
+  pointer-events: none;
+}
+
+.hero-copy { position: relative; z-index: 2; }
+.eyebrow { display: flex; align-items: center; gap: 9px; margin: 0 0 22px; font-size: 16px; letter-spacing: -0.012em; color: var(--ink-3); }
+/* The official wordmark, unaltered, as the Open Home Foundation asks; only
+   its size is set here. */
+.eyebrow-mark { width: auto; height: 17px; }
+/* Set like the wordmark's lettering beside it: its #F2F4F9, about its weight. */
+.eyebrow-name { color: #f2f4f9; font-weight: 640; letter-spacing: -0.02em; }
+.hero-copy h1 { margin-bottom: 24px; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+
+.demo-controls {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin-top: 36px; padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.seg {
+  display: inline-flex; padding: 3px; gap: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 0 1px var(--line-2);
+}
+.seg button {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 32px; padding: 0 13px;
+  border: 0; border-radius: 999px;
+  background: none; color: var(--ink-3);
+  font: inherit; font-size: 13.5px; font-weight: 550; letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+.seg button:hover { color: var(--ink); }
+.seg button[aria-checked="true"] { color: var(--ink); background: rgba(255, 255, 255, 0.1); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); }
+
+.hero-demo { position: relative; z-index: 1; min-width: 0; }
+
+/* Entrance. */
+.js .hero-copy > * { opacity: 0; transform: translateY(14px); }
+.js .hero-demo { opacity: 0; transform: translateY(18px) scale(0.985); }
+.js .hero.is-on .hero-copy > * {
+  opacity: 1; transform: none;
+  transition: opacity 700ms var(--ease), transform 700ms var(--ease);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+.js .hero.is-on .hero-demo { opacity: 1; transform: none; transition: opacity 800ms ease 180ms, transform 1000ms var(--ease) 180ms; }
+@media (prefers-reduced-motion: reduce) {
+  .js .hero-copy > *, .js .hero-demo { opacity: 1; transform: none; }
+  .js .hero.is-on .hero-copy > *, .js .hero.is-on .hero-demo { transition: none; }
+}
+
+/* ---------- the reTerminal ---------- */
+
+/* Everything is sized in cqw of .rt, which is the enclosure's width, so 1 mm
+   of the real device is 100/176 = 0.568cqw. Only children can use it: a
+   container's own lengths resolve against the container above it. */
+.rt {
+  --mm: calc(100cqw / 176);
+  --frame: #efefec;
+  --frame-lo: #dcdcd8;
+  --paper-rest: #c3cbca;
+  position: relative;
+  container-type: inline-size;
+  width: 100%;
+  max-width: 780px;
+  margin-inline: auto;
+}
+.rt-face {
+  position: relative;
+  /* Room for the buttons standing proud of the top edge. */
+  margin-top: calc(var(--mm) * 3.2);
+  aspect-ratio: 176 / 120;
+  border-radius: calc(var(--mm) * 1.1);
+  /* Powder-coated metal: flat, very slightly warm white, lit from above.
+     The noise is a tiny SVG turbulence so the surface does not read as a
+     plastic render. */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 38%, rgba(0, 0, 0, 0.035) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    var(--frame);
+  box-shadow:
+    /* the rolled front edge */
+    inset 0 0 0 calc(var(--mm) * 0.35) rgba(255, 255, 255, 0.55),
+    inset 0 calc(var(--mm) * -0.5) calc(var(--mm) * 0.4) rgba(0, 0, 0, 0.06),
+    /* body edge and the room around it */
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 calc(var(--mm) * 0.8) calc(var(--mm) * 1.4) rgba(0, 0, 0, 0.35),
+    0 calc(var(--mm) * 8) calc(var(--mm) * 18) calc(var(--mm) * -4) rgba(0, 0, 0, 0.75),
+    0 0 calc(var(--mm) * 40) rgba(255, 230, 0, 0.06);
+}
+/* The chamfer band that runs round the front, 1.2 mm in. */
+.rt-face::before {
+  content: "";
+  position: absolute; inset: calc(var(--mm) * 1.2);
+  border-radius: calc(var(--mm) * 0.4);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.035), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+
+/* The window: no black mat, only a hairline where the frame steps down onto
+   the glass about a millimetre below it, and the thin inactive border of the
+   panel, a touch greyer than its pixels. */
+.rt-window {
+  position: absolute;
+  left: calc(var(--mm) * 6.75);
+  top: calc(var(--mm) * 6);
+  width: calc(var(--mm) * 162.5);
+  height: calc(var(--mm) * 98);
+  background: var(--paper-rest);
+  box-shadow:
+    0 0 0 calc(var(--mm) * 0.3) #9a9a9e,
+    0 1px 0 calc(var(--mm) * 0.3) rgba(255, 255, 255, 0.7),
+    inset 0 calc(var(--mm) * 0.9) calc(var(--mm) * 1.1) rgba(0, 0, 0, 0.28),
+    inset 0 0 calc(var(--mm) * 0.5) rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+.rt-paper {
+  position: absolute;
+  left: calc(var(--mm) * 1.25);
+  top: calc(var(--mm) * 1);
+  width: calc(var(--mm) * 160);
+  height: calc(var(--mm) * 96);
+  background: #c9d1cf;
+}
+.rt-still, .rt-canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+}
+/* Glass: matte, so only a faint sheen, and the recess shadow at the top edge
+   drawn over the pixels rather than under them. */
+.rt-window::after {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0) calc(var(--mm) * 2.5)),
+    linear-gradient(118deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 38%);
+  pointer-events: none;
+}
+.rt-paper.busy { cursor: progress; }
+
+/* The rear housing's top face, 87 mm wide and centred, seen just over the
+   front edge, and the buttons sitting on it. They stand about a millimetre
+   proud on the real device; here a little more, so they read as pressable. */
+.rt-back {
+  position: absolute;
+  left: calc(var(--mm) * 44.5);
+  width: calc(var(--mm) * 87);
+  top: calc(var(--mm) * 1.6);
+  height: calc(var(--mm) * 2.4);
+  border-radius: calc(var(--mm) * 0.6) calc(var(--mm) * 0.6) 0 0;
+  background: linear-gradient(180deg, #f6f6f3, #d6d6d2);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+.rt-mics {
+  position: absolute;
+  left: calc(var(--mm) * (88 - 44.5));
+  top: calc(var(--mm) * 0.55);
+  width: calc(var(--mm) * 4);
+  height: calc(var(--mm) * 1.2);
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.45) 38%, transparent 42%) 0 0 / calc(var(--mm) * 1.33) calc(var(--mm) * 0.6);
+}
+.rt-window-rf {
+  position: absolute;
+  left: calc(var(--mm) * (56 - 44.5));
+  top: calc(var(--mm) * 0.35);
+  width: calc(var(--mm) * 26);
+  height: calc(var(--mm) * 1.6);
+  border-radius: calc(var(--mm) * 0.3);
+  background: linear-gradient(180deg, #fbfbf9, #e8e8e4);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.rt-btn {
+  position: absolute; z-index: 2;
+  top: 0;
+  height: calc(var(--mm) * 3.6);
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--mm) * 0.7) calc(var(--mm) * 0.7) calc(var(--mm) * 0.2) calc(var(--mm) * 0.2);
+  background: linear-gradient(180deg, #ffffff 0%, #ecece9 55%, #d4d4d0 100%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.32), inset 0 1px 0 #fff;
+  cursor: pointer;
+  transition: transform 90ms ease, filter 160ms ease;
+}
+.rt-btn:hover { filter: brightness(1.04); }
+/* The real buttons are a few millimetres wide, which on a phone is a few
+   pixels. The hit area grows upward and outward, never into the neighbour. */
+.rt-btn::after { content: ""; position: absolute; inset: -14px -1px -4px; }
+.rt-btn:active, .rt-btn.pressed { transform: translateY(calc(var(--mm) * 1)); }
+/* The white rocker is one part with two ends. */
+.rt-left { left: calc(var(--mm) * 93.5); width: calc(var(--mm) * 8.6); border-top-right-radius: calc(var(--mm) * 0.2); }
+.rt-right { left: calc(var(--mm) * 102.4); width: calc(var(--mm) * 8.6); border-top-left-radius: calc(var(--mm) * 0.2); }
+.rt-green {
+  left: calc(var(--mm) * 113.5); width: calc(var(--mm) * 8.5);
+  background: linear-gradient(180deg, #b6e25a 0%, #8dc21f 55%, #6f9c14 100%);
+  box-shadow: 0 0 0 1px rgba(40, 60, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.rt-btn:focus-visible { outline-offset: 2px; border-radius: calc(var(--mm) * 0.7); }
+@media (prefers-reduced-motion: reduce) { .rt-btn { transition: none; } }
+
+.rt-caption {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 20px;
+  margin-top: 34px;
+  font-size: 13.5px; color: var(--ink-3);
+}
+.rt-caption b { color: var(--ink); font-weight: 580; }
+.rt-caption b.g { color: var(--leaf); }
+
+/* ---------- sections ---------- */
+
+.section { padding: clamp(80px, 9vw, 120px) 0; border-top: 1px solid var(--line); }
+.section-head { margin-bottom: clamp(44px, 5vw, 64px); }
+.stack-head p { margin: 20px 0 0; max-width: 64ch; font-size: 17px; color: var(--ink-3); }
+
+.duo {
+  display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+  gap: clamp(48px, 7vw, 104px); align-items: center;
+}
+.duo.flip { grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr); }
+.duo-copy { display: flex; flex-direction: column; gap: 22px; max-width: 32em; }
+.duo-copy h2 { margin-bottom: 4px; }
+.duo-copy .pill { align-self: flex-start; margin-top: 8px; }
+.align-end { text-align: right; justify-self: end; align-items: flex-end; }
+.align-end .pill { align-self: flex-end; }
+.align-end .ticks li { padding-left: 0; padding-right: 22px; }
+.align-end .ticks li::before { left: auto; right: 2px; }
+.duo-media { position: relative; }
+.duo-media::before {
+  content: ""; position: absolute; inset: -12% 4%;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(255, 230, 0, 0.09), transparent 70%);
+  pointer-events: none;
+}
+#weather .duo-media::before { background: radial-gradient(50% 50% at 50% 50%, rgba(70, 100, 255, 0.12), transparent 70%); }
+
+.ticks { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; font-size: 15.5px; color: var(--ink-3); }
+.ticks li { position: relative; padding-left: 22px; }
+.ticks li::before { content: ""; position: absolute; left: 2px; top: 0.62em; width: 7px; height: 7px; border-radius: 50%; background: var(--sun); }
+.ticks b { color: var(--ink); font-weight: 580; }
+
+/* ---------- compare ---------- */
+
+.compare {
+  position: relative;
+  aspect-ratio: 590 / 330;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #111;
+  box-shadow: 0 0 0 1px var(--line-2), 0 40px 90px -30px rgba(0, 0, 0, 0.9);
+  touch-action: pan-y;
+  user-select: none;
+}
+.compare img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* The panel's pixels stay square at any size: a smoothed dither is a grey
+   blur, and the blur is exactly what the slider is there to rule out. */
+.compare-panel { image-rendering: pixelated; clip-path: inset(0 0 0 var(--cut)); }
+.compare-handle {
+  position: absolute; top: 0; bottom: 0; left: var(--cut);
+  width: 2px; margin-left: -1px;
+  background: var(--ink);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+.compare-handle::after {
+  content: "";
+  position: absolute; top: 50%; left: 50%;
+  width: 34px; height: 34px; margin: -17px 0 0 -17px;
+  border-radius: 50%;
+  background: var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='%2309090b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='m9 7-5 5 5 5M15 7l5 5-5 5'/%3E%3C/svg%3E") center / 18px no-repeat;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+.compare-range {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+}
+.compare-range:focus-visible ~ .compare-handle::after { outline: 2px solid var(--sun); outline-offset: 3px; }
+.compare-tag {
+  position: absolute; top: 14px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px; font-weight: 580; letter-spacing: 0.01em;
+  color: var(--ink);
+  background: rgba(10, 10, 12, 0.62);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+.compare-tag.left { left: 14px; }
+.compare-tag.right { right: 14px; }
+
+/* ---------- styles ---------- */
+
+.gallery { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px 24px; }
+.shot h3 { margin-top: 18px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.shot h3 span { font-size: 13.5px; font-weight: 500; letter-spacing: 0; color: var(--ink-3); }
+.shot p {
+  margin: 8px 0 0; font-size: 15px; color: var(--ink-3);
+  /* Two lines at most, whatever the column width. */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
+.shot-art {
+  display: block; width: 100%;
+  padding: 0; border: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #111;
+  box-shadow: inset 0 0 0 1px var(--line-2);
+  cursor: pointer;
+}
+.shot-art img { width: 100%; aspect-ratio: 640 / 358; object-fit: cover; }
+
+.pool, .calendar {
+  margin-top: clamp(64px, 7vw, 96px);
+  padding-top: clamp(40px, 5vw, 56px);
+  border-top: 1px solid var(--line);
+}
+.calendar {
+  display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: clamp(32px, 5vw, 72px); align-items: start;
+}
+.pool p, .calendar p { margin: 10px 0 0; font-size: 15.5px; color: var(--ink-3); }
+.pool-head { max-width: 60ch; margin-bottom: 28px; }
+
+/* ---------- style index ---------- */
+
+/* An index of the twelve styles, three columns of numbered rows split by
+   hairlines. Pointing at one brings up a print of Benny in it. */
+.style-index {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 32px;
+  margin: 0; padding: 0; list-style: none;
+  counter-reset: none;
+}
+.style-row {
+  position: relative;
+  display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: baseline; gap: 12px;
+  width: 100%;
+  padding: 16px 4px 17px;
+  border: 0; border-top: 1px solid var(--line);
+  background: none; color: inherit; font: inherit; text-align: left;
+  cursor: default;
+  transition: opacity 220ms ease;
+}
+.style-n { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--ink-4); transition: color 200ms ease; }
+.style-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.style-name {
+  font-size: 19px; font-weight: 580; letter-spacing: -0.022em; color: var(--ink);
+  transition: transform 320ms var(--ease), color 200ms ease;
+}
+.style-note { font-size: 13.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.style-thumb { display: none; }
+
+/* Pointing at one row quiets the others, so the eye follows the print. */
+@media (hover: hover) and (pointer: fine) {
+  .style-index:hover .style-row:not(:hover) { opacity: 0.42; }
+  .style-row:hover .style-name { transform: translateX(6px); }
+  .style-row:hover .style-n { color: var(--sun); }
+}
+.style-row:focus-visible { outline-offset: -2px; }
+.style-row:focus-visible .style-n { color: var(--sun); }
+
+/* The print: a white card like the panel's frame, following the pointer. It
+   is positioned by app.js; here it only knows how to appear. */
+.style-preview {
+  position: fixed; left: 0; top: 0; z-index: 30;
+  width: 320px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(var(--x, -999px), var(--y, -999px), 0);
+  transition: opacity 180ms ease;
+}
+.style-preview.on { opacity: 1; }
+.style-print {
+  padding: 8px 8px 0;
+  border-radius: 6px;
+  background: #efefec;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 24px 60px -12px rgba(0, 0, 0, 0.8), 0 0 90px rgba(255, 230, 0, 0.08);
+  transform: rotate(var(--tilt, 0deg)) scale(0.86);
+  transform-origin: 30% 100%;
+  transition: transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.style-preview.on .style-print { transform: rotate(var(--tilt, 0deg)) scale(1); }
+.style-frame { position: relative; aspect-ratio: 600 / 338; overflow: hidden; border-radius: 2px; background: #c3cbca; }
+.style-frame img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  opacity: 0; transform: scale(1.06);
+  transition: opacity 240ms ease, transform 520ms var(--ease);
+}
+.style-frame img.shown { opacity: 1; transform: none; }
+.style-print figcaption {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; align-items: baseline;
+  padding: 9px 4px 10px;
+  font-size: 13px; color: #1b1c1f;
+}
+/* Name and weather on the first line, the activity under both. */
+.cap-what { display: contents; }
+.cap-what b { grid-column: 1; grid-row: 1; font-weight: 620; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cap-what i { grid-column: 1 / -1; grid-row: 2; margin-top: 1px; font-style: normal; font-size: 12px; color: #4b4d52; }
+.cap-when { grid-column: 2; grid-row: 1; font-family: var(--mono); font-size: 11px; color: #5f6166; white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  .style-print, .style-preview.on .style-print { transform: none; transition: none; }
+  .style-frame img { transform: none; transition: opacity 120ms ease; }
+  .style-name, .style-row { transition: none; }
+}
+
+/* Without a pointer to follow there is no floating print: each row carries
+   its own small picture instead. */
+@media (hover: none), (pointer: coarse) {
+  .style-row { grid-template-columns: 30px 88px minmax(0, 1fr); align-items: center; }
+  .style-thumb {
+    display: block; width: 88px; height: 50px;
+    border-radius: 6px; object-fit: cover;
+    box-shadow: 0 0 0 1px var(--line-2);
+  }
+  .style-preview { display: none; }
+}
+
+.days { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.days li {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  font-size: 14.5px; color: var(--ink-3);
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.days b { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--sun-ink); }
+
+/* ---------- page two ---------- */
+
+/* A smaller, static reTerminal, drawn the same way as the hero's. */
+.mini { container-type: inline-size; position: relative; max-width: 640px; margin-inline: auto; }
+.mini-face {
+  --mm: calc(100cqw / 176);
+  position: relative;
+  aspect-ratio: 176 / 120;
+  border-radius: calc(var(--mm) * 1.1);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 40%), #efefec;
+  box-shadow:
+    inset 0 0 0 calc(var(--mm) * 0.35) rgba(255, 255, 255, 0.55),
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 calc(var(--mm) * 8) calc(var(--mm) * 18) calc(var(--mm) * -4) rgba(0, 0, 0, 0.75);
+}
+.mini-window {
+  position: absolute;
+  left: calc(var(--mm) * 6.75); top: calc(var(--mm) * 6);
+  width: calc(var(--mm) * 162.5); height: calc(var(--mm) * 98);
+  padding: calc(var(--mm) * 1) calc(var(--mm) * 1.25);
+  background: #c3cbca;
+  box-shadow: 0 0 0 calc(var(--mm) * 0.3) #9a9a9e, inset 0 calc(var(--mm) * 0.9) calc(var(--mm) * 1.1) rgba(0, 0, 0, 0.28);
+}
+.mini-window img { width: 100%; height: 100%; }
+
+/* ---------- pipeline ---------- */
+
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; margin-bottom: 48px; }
+.step p {
+  margin: 10px 0 12px; font-size: 15.5px; line-height: 1.6; color: var(--ink-3);
+  /* Side by side, every step reserves three lines, so the links under them
+     line up. The copy is written to fit; nothing is cut off. */
+  min-height: 4.8em;
+}
+.step a { font-size: 14.5px; }
+.step-n {
+  display: inline-grid; place-items: center;
+  min-width: 32px; height: 32px; padding: 0 10px; margin-bottom: 18px;
+  border-radius: 10px;
+  font-family: var(--mono); font-size: 14px; font-weight: 600;
+  color: var(--sun-ink);
+  background: rgba(255, 230, 0, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(255, 230, 0, 0.24);
+}
+
+/* ---------- hardware ---------- */
+
+.stats {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px;
+  margin: 0 0 20px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--line);
+  box-shadow: 0 0 0 1px var(--line-2);
+}
+.stats div { padding: 22px 22px 20px; background: #101013; }
+.stats dt { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-3); }
+.stats dt svg { color: var(--ink-2); }
+.stats dd { margin: 6px 0 0; font-size: clamp(30px, 3.2vw, 42px); font-weight: 620; letter-spacing: -0.045em; line-height: 1; }
+.stats small { margin-left: 6px; font-size: 14px; font-weight: 500; letter-spacing: -0.01em; color: var(--ink-3); }
+
+.scope {
+  position: relative;
+  width: 100%;
+  border-collapse: separate; border-spacing: 0;
+  border-radius: 18px;
+  background: rgba(20, 20, 24, 0.8);
+  box-shadow: inset 0 0 0 1px var(--line-2), 0 40px 90px -30px rgba(0, 0, 0, 0.9);
+  font-size: 13.5px;
+  overflow: hidden;
+}
+.scope th, .scope td { padding: 10px 16px; text-align: left; vertical-align: top; border-top: 1px solid var(--line); }
+.scope tr:first-child th, .scope tr:first-child td { border-top: 0; }
+.scope tbody th { width: 26%; font-weight: 500; color: var(--ink); white-space: nowrap; }
+.scope td { color: var(--ink-2); }
+
+/* ---------- setup ---------- */
+
+.codes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
+.code {
+  min-width: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #121215;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.09), 0 40px 90px -30px rgba(0, 0, 0, 0.9);
+}
+.code-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 42px; padding: 0 8px 0 18px;
+  background: #1a1a1e;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono); font-size: 12.5px; color: var(--ink-3);
+}
+.copy { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: none; color: var(--ink-3); cursor: pointer; }
+.copy:hover { color: var(--ink); background: var(--fill); }
+.copy.copied { color: var(--leaf); }
+.code pre { margin: 0; padding: 18px 20px 20px; overflow-x: auto; font-size: 13px; line-height: 1.7; color: var(--ink-2); }
+.code .k { color: var(--sun-ink); }
+.code .c { color: var(--ink-4); }
+/* Shell: a prompt drawn in CSS, so copying the block copies only commands. */
+.code .sh .ln::before { content: "$ "; color: var(--ink-4); user-select: none; }
+.code .cmd { color: var(--sun-ink); }
+.code .fl { color: #9db4ff; }
+.code .v { color: #b6e25a; }
+
+/* ---------- more ---------- */
+
+.more-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 52px clamp(40px, 6vw, 88px); }
+.more h3 { margin-bottom: 10px; }
+.more p { margin: 0; font-size: 15.5px; color: var(--ink-3); }
+
+/* ---------- footer ---------- */
+
+.foot { padding: 28px var(--gutter) 30px; border-top: 1px solid var(--line); text-align: center; }
+.foot p { margin: 0; font-size: 13.5px; color: var(--ink-4); }
+.foot .foot-mark {
+  display: inline-flex; align-items: center; gap: 10px;
+  margin-bottom: 16px;
+  font-weight: 620; font-size: 15.5px; letter-spacing: -0.025em;
+  color: var(--ink);
+}
+.foot-mark svg { display: block; }
+.foot .love { margin-top: 10px; font-size: 14px; color: var(--ink-2); }
+.foot .credits { margin-top: 6px; font-size: 12.5px; }
+.foot a { color: var(--ink-3); text-decoration: none; }
+
+/* ---------- 404 ---------- */
+
+.notfound { display: grid; align-content: center; min-height: 100dvh; padding-block: 80px; }
+.notfound-mark { display: block; margin-bottom: 28px; }
+.notfound .eyebrow { margin-bottom: 20px; }
+.notfound h1 { margin-bottom: 22px; }
+.notfound .actions { margin-top: 30px; }
+
+/* ---------- scroll reveal ---------- */
+
+.js .reveal { opacity: 0; transform: translateY(14px); }
+.js .reveal.in {
+  opacity: 1; transform: none;
+  transition: opacity 700ms var(--ease), transform 700ms var(--ease);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .js .reveal { opacity: 1; transform: none; }
+  .js .reveal.in { transition: none; }
+}
+
+/* ---------- responsive ---------- */
+
+/* Below this the panel no longer fits beside the copy at a readable size:
+   stack them, the panel under the text. */
+@media (max-width: 1180px) {
+  .hero { grid-template-columns: minmax(0, 780px); min-height: 0; padding-top: calc(var(--header) + 56px); }
+  .hero-copy { max-width: 640px; }
+  .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1080px) {
+  .steps { grid-template-columns: 1fr; gap: 44px; max-width: 560px; }
+  .codes { grid-template-columns: 1fr; }
+  .step p { min-height: 0; }
+  .duo, .duo.flip { grid-template-columns: 1fr; gap: 48px; }
+  .duo.flip .duo-media { order: 2; }
+  .align-end { text-align: left; justify-self: start; align-items: flex-start; }
+  .align-end .pill { align-self: flex-start; }
+  .align-end .ticks li { padding-left: 22px; padding-right: 0; }
+  .align-end .ticks li::before { left: 2px; right: auto; }
+  .calendar { grid-template-columns: 1fr; }
+  .style-index { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 860px) {
+  .top { grid-template-columns: 1fr auto; }
+  .top-nav { display: none; }
+  .more-grid { grid-template-columns: 1fr; gap: 40px; }
+}
+
+@media (max-width: 640px) {
+  .mark-version { display: none; }
+  .top .pill { padding: 0 14px; }
+  .hero { padding-inline: 16px; }
+  .gallery { grid-template-columns: 1fr; }
+  .days { grid-template-columns: 1fr; }
+  .style-index { grid-template-columns: 1fr; }
+  .scope th, .scope td { padding: 12px; }
+  .scope tbody th { white-space: normal; }
+  .rt-caption { flex-direction: column; align-items: center; gap: 4px; }
+  /* Nobody copies shell commands on a phone; the steps above say enough. */
+  .codes { display: none; }
+}

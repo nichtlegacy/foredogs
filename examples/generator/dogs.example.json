@@ -1,0 +1,14 @@
+{
+  "dogs": [
+    {
+      "name": "Rex",
+      "description": "Rex is a cheeky but warm-hearted dog.",
+      "image_paths": [
+        "./assets/input_images/rex_1.jpg",
+        "./assets/input_images/rex_2.jpg",
+        "./assets/input_images/rex_3.jpg",
+        "./assets/input_images/rex_4.jpg"
+      ]
+    }
+  ]
+}

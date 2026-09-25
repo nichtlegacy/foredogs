@@ -1,0 +1,78 @@
+{
+  "_comment": "Copy to generator/config/art_styles.json and make it yours. These twelve are a deliberately plain starting pool: they name a medium rather than a franchise, and each one says in render_as what the dogs themselves are made of, which is the difference between a watercolour scene and a photographic dog standing in front of one. Everything here is composed for a six-colour e-paper panel, so large readable shapes and strong value contrast, no smooth gradients and no fine repeating texture.",
+  "art_styles": [
+    {
+      "style": "watercolour painting with soft bleeding edges",
+      "outfit": null,
+      "universe": null,
+      "render_as": "watercolour-painted subjects with translucent washes, visible paper grain and soft edges where colours meet. Genuinely painted, never a photograph with a watercolour filter"
+    },
+    {
+      "style": "comic book style with bold ink lines and flat colour",
+      "outfit": null,
+      "universe": null,
+      "render_as": "comic-book characters with confident black ink outlines, flat cel colouring and halftone dot shading, like a panel from a printed comic. Ink and print, never a photographic or 3D dog dropped onto a comic background"
+    },
+    {
+      "style": "risograph print with limited spot colours and visible misregistration",
+      "outfit": null,
+      "universe": null,
+      "render_as": "subjects built from two or three overprinted spot-colour layers with slight misregistration and coarse paper texture. Flat ink on stock, no photographic depth"
+    },
+    {
+      "style": "woodcut print with heavy carved lines",
+      "outfit": null,
+      "universe": null,
+      "render_as": "figures carved as bold relief shapes, black ink on cream paper, with directional gouge marks doing all the shading. Two tones only, no midtones"
+    },
+    {
+      "style": "mid-century children's book illustration",
+      "outfit": null,
+      "universe": null,
+      "render_as": "simplified friendly figures in flat muted colour with slightly off-register printed texture, drawn with a soft crayon or litho edge rather than a clean vector line"
+    },
+    {
+      "style": "stained glass window with lead came outlines",
+      "outfit": null,
+      "universe": null,
+      "render_as": "subjects assembled from flat panes of saturated coloured glass, every shape bounded by a thick dark lead line. Luminous and graphic, never modelled or shaded"
+    },
+    {
+      "style": "paper cut-out collage with layered shapes",
+      "outfit": null,
+      "universe": null,
+      "render_as": "figures built from torn and cut paper in flat colours, layered with visible edges and small drop shadows between layers. Handmade collage, not a digital illustration imitating one"
+    },
+    {
+      "style": "vintage travel poster with flat bold shapes",
+      "outfit": null,
+      "universe": null,
+      "render_as": "simplified geometric figures in four or five flat screen-printed colours, strong diagonal composition, no gradients. The look of a 1930s railway poster"
+    },
+    {
+      "style": "chalk drawing on a dark board",
+      "outfit": null,
+      "universe": null,
+      "render_as": "figures drawn in coloured chalk on slate: soft dusty strokes, smudged edges, bright marks on a dark ground. Hand-drawn on a real board"
+    },
+    {
+      "style": "blocky voxel art built from large cubes",
+      "outfit": null,
+      "universe": null,
+      "render_as": "creatures and scenery built from visibly chunky cubes with flat per-face shading, like a low-resolution voxel model. Cubic geometry throughout, never a smooth model with a blocky texture"
+    },
+    {
+      "style": "botanical field guide plate with fine ink hatching",
+      "outfit": null,
+      "universe": null,
+      "render_as": "subjects drawn as a naturalist's plate: precise ink contours, restrained hatching for form, flat colour washes, plenty of cream paper around them"
+    },
+    {
+      "style": "enamel pin design with thick metal borders",
+      "outfit": null,
+      "props": "a plain background so the shapes read as a single object",
+      "universe": null,
+      "render_as": "figures reduced to a few bold enamel colour fields separated by raised metal outlines, as if the whole scene were one hard enamel pin. Flat colour, hard edges, no shading inside a field"
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "location": "Berlin, Germany",
+  "paths": {
+    "dogs_file": "./config/dogs.json",
+    "art_styles_file": "./config/art_styles.json"
+  },
+  "weather": {
+    "provider": "open-meteo",
+    "geocoding_url": "https://geocoding-api.open-meteo.com/v1/search",
+    "forecast_url": "https://api.open-meteo.com/v1/forecast",
+    "geocoding_language": "en",
+    "timezone": "auto",
+    "forecast_days": 1
+  },
+  "generator": {
+    "image_gen_aspect_ratio": "16:9",
+    "image_gen_resolution": "1K",
+    "final_image_size": "800x480",
+    "display_profile": "spectra6",
+    "state_dir": "./state",
+    "output_dir": "./output",
+    "archive_dir": "./output/archive",
+    "archive_keep_days": 0,
+    "seed_prompt_history_path": null,
+    "seed_style_history_path": null,
+    "generation_timeout_seconds": 1800,
+    "include_weather_box": false,
+    "_comment": "archive_dir keeps a dated copy of every generated original; archive_keep_days 0 keeps them all. This is the only copy on the machine that made the picture: the working files are overwritten each run, Home Assistant prunes its own after keep_days, and an archive server can be down for weeks unnoticed. codex_model and codex_reasoning_effort still work here for older configs, but the provider block supersedes them."
+  },
+  "publish": {
+    "ssh_host": "homeassistant",
+    "remote_dir": "/config/www/daily_foredogs/dogs",
+    "ha_url": "http://homeassistant.local:8123",
+    "render_script": "script.foredogs_render_dashboard",
+    "_comment": "The long-lived access token is read from FOREDOGS_HA_TOKEN so it never lands in this file. Store it in ~/.config/foredogs/ha_token."
+  },
+  "immich": {
+    "url": "https://immich.example.com",
+    "album_id": "",
+    "album_name": "Foredogs Archive",
+    "_comment": "Optional. Leave album_id empty to skip archiving. The API key is read from FOREDOGS_IMMICH_KEY, stored in ~/.config/foredogs/immich_key."
+  },
+  "provider": {
+    "_comment": "kind: 'codex' drives the codex CLI (no API key here, whatever the CLI is logged into answers). 'openai' talks to any OpenAI-compatible endpoint: OpenAI, Google, LiteLLM, OpenRouter, Ollama, a local proxy. Aliases: openai-compatible, gemini, litellm, ollama.",
+    "kind": "codex",
+    "text_model": "gpt-5.6-luna",
+    "image_model": null,
+    "reasoning_effort": "max",
+    "timeout_seconds": 1800,
+    "_comment_openai": "The keys below apply to kind 'openai' only. The API key is never stored here: api_key_env names the environment variable to read it from.",
+    "base_url": null,
+    "api_key_env": "FOREDOGS_API_KEY",
+    "image_size": "1280x720",
+    "reference_image_max_px": 1024
+  }
+}

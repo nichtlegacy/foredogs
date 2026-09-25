@@ -1,0 +1,113 @@
+# The render script. Append this to scripts.yaml.
+#
+# This is the entry point everything else calls:
+#
+#   - the generator POSTs to it after publishing a new picture
+#     (publish.render_script in generator/config.json)
+#   - the panel asks for it on every wake, before downloading
+#     (homeassistant.action in esphome/e1002-kitchen.yaml)
+#   - the periodic automation in kitchen_dashboard_automations.yaml calls it as
+#     a safety net
+#   - the panel's right button calls it with page: 2 to turn to the weather
+#     detail, and with page: 1 to come back
+#
+# It exists as a script rather than only as an automation because ESPHome can
+# call a script by name, and because the entity list below then lives in one
+# place instead of three.
+#
+# Rendering is free: it composites the cached picture with live state and calls
+# no image model. Run it as often as you like.
+
+script:
+  foredogs_render_dashboard:
+    alias: Foredogs render dashboard
+    icon: mdi:image-refresh
+    # Queued rather than single: the panel and the generator can both ask within
+    # the same second, and the second request should wait rather than be dropped.
+    mode: queued
+    max: 3
+    fields:
+      page:
+        name: Page
+        description: >-
+          1 = home, 2 = weather detail. The panel passes this when its right
+          button turns a page; everything else omits it and gets the home page.
+        default: 1
+        selector:
+          number:
+            min: 1
+            max: 2
+            mode: box
+    sequence:
+      - action: foredogs.render_dashboard
+        data:
+          # --- required ---------------------------------------------------
+          weather_entity: weather.forecast_home
+
+          # --- the panel's own sensors, all optional ----------------------
+          # These come from the ESPHome device. Replace the prefix with your
+          # own device name. They are frequently `unavailable`, because the
+          # device sleeps most of the day; the renderer falls back to the last
+          # known value for up to 30 hours and then shows a dash.
+          inside_temp_entity: sensor.e1002_temperature
+          inside_humidity_entity: sensor.e1002_humidity
+          battery_entity: sensor.e1002_battery_level
+
+          # --- where the picture comes from -------------------------------
+          # image_dir lets the generator publish one file per day; the renderer
+          # picks today's, then the newest, then source_image as a fallback.
+          image_dir: dogs
+          source_image: foredogs_original.png
+          # Delete dated pictures older than this. 0 keeps everything.
+          #
+          # Home Assistant is the shortest-lived of the three copies, so this is
+          # the buffer that covers an archive outage. Five days is not enough:
+          # an Immich server that was down for three weeks cost sixteen days of
+          # pictures, because by the time anyone noticed, Home Assistant had
+          # pruned them too. Thirty days is about 75 MB in /config/www.
+          keep_days: 30
+
+          # Language of the drawn labels: de or en. Your own waste bin
+          # labels below are used as written, whatever this is set to.
+          language: de
+
+          # --- waste collection, all optional -----------------------------
+          # Remove this block entirely if you do not want the bins on the panel.
+          # kind is what picks the colour: rest, bio, papier, gelb.
+          waste_sensors:
+            - entity_id: sensor.residual_waste
+              label: Restabfall
+              kind: rest
+            - entity_id: sensor.paper_waste
+              label: Papier
+              kind: papier
+          waste_calendars:
+            # For bins that have a calendar but no sensor. `match` filters the
+            # event summary, case-insensitively, as a substring.
+            - entity_id: calendar.waste_collection
+              label: Bio
+              kind: bio
+              match: bio
+
+          # --- page selection ---------------------------------------------
+          # The panel's right button turns the page, so the page it wants comes
+          # in as a field. Callers that pass nothing — the generator, the
+          # periodic automation — get the home page, which is why a scheduled
+          # wake always shows the picture rather than whatever was last on the
+          # glass. int(1) also covers ESPHome sending the value as a string.
+          page: "{{ page | int(1) }}"
+          # Two pages exist. The renderer draws no page marker at all when this
+          # is 1, so it has to be right or the panel claims to be alone.
+          page_count: 2
+        response_variable: render_result
+
+      # Optional: makes "did anything change?" visible in the logbook.
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ render_result.changed }}"
+            sequence:
+              - action: logbook.log
+                data:
+                  name: Foredogs
+                  message: "Dashboard changed: {{ render_result.fingerprint }}"
