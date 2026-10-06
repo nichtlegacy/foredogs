@@ -15,14 +15,6 @@ fork dates from February 2026; everything below describes changes made since.
 
 ## [Unreleased]
 
-### Added
-
-- **Repository: visitor statistics on the landing page.** `site/index.html`
-  and `site/404.html` load the self-hosted Umami script from
-  insights.nichtlegacy.com. It sets no cookies, counts only visits to
-  foredogs.nichtlegacy.com (not localhost or `--serve` previews) and records
-  clicks on the GitHub, Docs and "Get started" links.
-
 ## [2.0.1] – 2026-10-06
 
 A fix release. Touches the **generator** and the Home Assistant **render
