@@ -89,7 +89,7 @@ The exact lines are in both plists (`com.foredogs.daily.plist:31-37`,
 `publish_to_ha.py` reads:
 
 - `FOREDOGS_HA_TOKEN` for the Home Assistant bearer token
-  (`publish_to_ha.py:69-77`),
+  (`publish_to_ha.py:77-86`),
 - `FOREDOGS_IMMICH_KEY` for the `x-api-key` header
   (`publish_to_ha.py:37-57`).
 
@@ -314,13 +314,14 @@ failure.
 
 ### Upload order
 
-`publish_to_ha.py:82-119` loads `output/foredogs_original.png`, calls
+`publish_to_ha.py:90-135` loads `output/foredogs_original.png`, calls
 `publish()`, and only archives afterwards:
 
 ```text
 original exists
   -> HA file + render trigger
   -> Immich archive
+  -> Immich catch-up from output/archive/
 ```
 
 The renderer does its own cropping and dithering. Uploading the Mac-optimized
@@ -357,11 +358,11 @@ date — anything hand-placed is left alone.
 Home Assistant keeps only the files it needs for rendering and for current
 links. Immich keeps the history in an album. The code explains why: daily PNGs
 would fill up the Home Assistant filesystem even though the panel only ever
-requests the current picture (`immich.py:1-11`).
+requests the current picture (`immich.py:1-12`).
 
 ### Album resolution
 
-`resolve_album()` (`immich.py:77-94`):
+`resolve_album()` (`immich.py:78-95`):
 
 1. use an existing `album_id` directly,
 2. otherwise `GET /api/albums`,
@@ -382,7 +383,7 @@ x-api-key: <FOREDOGS_IMMICH_KEY>
 }
 ```
 
-Source: `immich.py:97-115`.
+Source: `immich.py:98-116`.
 
 For `action == reject` with `reason == duplicate`, Immich returns the existing
 asset ID. That is more robust than a local ledger file: a restore, a lost state
@@ -390,7 +391,7 @@ directory or a repeated publish all give the same result.
 
 ### Upload and album membership
 
-When no duplicate is found, `upload()` sends (`immich.py:118-157`):
+When no duplicate is found, `upload()` sends (`immich.py:119-158`):
 
 - `x-api-key`,
 - `x-immich-checksum: <sha1>`,
@@ -401,11 +402,11 @@ When no duplicate is found, `upload()` sends (`immich.py:118-157`):
 
 `add_to_album()` then adds the asset via
 `PUT /api/albums/<album_id>/assets`. A `duplicate` in the album response counts
-as success (`immich.py:160-175`).
+as success (`immich.py:161-176`).
 
 ### Idempotent `archive()`
 
-`archive()` (`immich.py:178-201`):
+`archive()` (`immich.py:179-202`):
 
 - existing asset: do not upload again, but make sure album membership is set,
 - new asset: upload, then set the album,
@@ -413,6 +414,30 @@ as success (`immich.py:160-175`).
   `in_album`.
 
 The same day's run can therefore be repeated safely.
+
+### Catching up after an outage
+
+`archive()` only ever sends today's picture. On its own, every day Immich was
+unreachable would stay a hole in the album after the server came back, even
+though `output/archive/` still had the file.
+
+So once today's archive succeeds, `publish_to_ha.py` calls `archive_backlog()`
+(`immich.py:230-269`). It:
+
+1. lists the dated files in `output/archive/` (anything not named `YYYY-MM-DD.png`
+   is ignored),
+2. asks Immich about all of them in one `bulk-upload-check` request
+   (`missing()`, `immich.py:205-227`),
+3. uploads each missing day and adds it to the album.
+
+The creation date is the archive file's modification time, which `copy2`
+preserves from the generation run. If that time no longer falls on the date in
+the filename, 05:00 on that date is used instead, so the picture still lands on
+its own day in the timeline.
+
+The catch-up stops at the first failure and is non-fatal, like the archive
+itself. It needs no local state: the next run asks Immich again. To trigger it
+by hand, run `scripts/daily_run.sh --publish-only`.
 
 ## Active and historical image paths
 

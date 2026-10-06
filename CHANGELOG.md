@@ -15,6 +15,31 @@ fork dates from February 2026; everything below describes changes made since.
 
 ## [Unreleased]
 
+## [2.0.1] – 2026-10-06
+
+A fix release. Touches the **generator** and the Home Assistant **render
+script**. The integration code and the firmware are unchanged; the manifest
+version follows the release.
+
+### Fixed
+
+- **Generator: days missed while Immich was down are now uploaded once it is
+  back.** Publishing only ever sent today's picture, so every day of an outage
+  stayed a hole in the album even though the local archive held the file. After
+  a successful archive, the publish step now asks Immich in one request which
+  dated files from `output/archive/` it lacks, uploads them under the day they
+  were generated, and adds them to the album. A failure stops the catch-up and
+  is retried on the next run. `scripts/daily_run.sh --publish-only` triggers it
+  by hand.
+- **Render script: a call without `page` no longer fails.** A script field's
+  `default` only fills the form in the Home Assistant UI; a caller that passes
+  nothing leaves the variable undefined, and `{{ page | int(1) }}` raised
+  `UndefinedError: 'page' is undefined`. That broke the generator's render
+  request and any time-based automation, while the panel, which always sends a
+  page, kept working. The example now reads
+  `{{ page | default(1) | int(1) }}`. **Update the copy in your
+  `scripts.yaml`**: it is not shipped with the integration.
+
 ## [2.0.0] – 2026-09-25
 
 The first public release of the rebuilt stack: a standalone generator, a Home

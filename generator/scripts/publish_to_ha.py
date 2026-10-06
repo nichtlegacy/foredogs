@@ -27,7 +27,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from foredogs_generator.immich import ImmichError, ImmichTarget, archive  # noqa: E402
+from foredogs_generator.immich import ImmichError, ImmichTarget, archive, archive_backlog  # noqa: E402
 from foredogs_generator.publish import PublishError, PublishTarget, publish  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -55,6 +55,14 @@ def load_immich() -> ImmichTarget | None:
         album_id=cfg.get("album_id", ""),
         album_name=cfg.get("album_name", "Foredogs Archive"),
     )
+
+
+def load_archive_dir() -> Path:
+    """The generator's dated archive, resolved the way the generator does."""
+    config = json.loads((ROOT / "config.json").read_text())
+    raw = config.get("generator", {}).get("archive_dir", "./output/archive")
+    path = Path(raw).expanduser()
+    return path if path.is_absolute() else (ROOT / path).resolve()
 
 
 def load_target() -> tuple[PublishTarget, Path]:
@@ -115,6 +123,14 @@ def main() -> int:
             )
         except (ImmichError, OSError):
             logger.warning("immich archive failed; will retry tomorrow", exc_info=True)
+        else:
+            # Immich answered, so send any day it missed while it was down.
+            try:
+                sent = archive_backlog(immich, load_archive_dir())
+                if sent:
+                    logger.info("immich: caught up %d day(s): %s", len(sent), ", ".join(sent))
+            except (ImmichError, OSError):
+                logger.warning("immich catch-up failed; will retry tomorrow", exc_info=True)
 
     return 0
 

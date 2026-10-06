@@ -68,7 +68,8 @@ flowchart TB
 
 Dotted edges are optional or indirect. The two that matter:
 
-- **Immich is non-fatal.** A picture that fails to archive is still on the wall.
+- **Immich is non-fatal.** A picture that fails to archive is still on the wall,
+  and the next run that reaches Immich sends every day it missed.
 - **The button is polled, not pushed.** Home Assistant has no SSH key for the
   generator host, and giving it one would let a home automation server execute
   code on a workstation. The host polls instead — see
@@ -155,7 +156,8 @@ still renders — with yesterday's picture and today's weather.
    Home Assistant never sees a half-copied file. `latest.png` is copied too.
 6. **Render nudge, then Immich.** The generator POSTs to the render script, then
    archives to Immich. That order matters: the display has to work when Immich
-   is unreachable, so archiving is last and non-fatal.
+   is unreachable, so archiving is last and non-fatal. Once Immich answers, any
+   day from `output/archive/` it does not have yet is uploaded as well.
 7. **Home Assistant composes.** `dashboard_service.py` reads weather, forecast,
    daylight, waste dates and the panel's own sensors into `DashboardData`;
    `dashboard_render.py` writes `dashboard.png` via a temporary file and an

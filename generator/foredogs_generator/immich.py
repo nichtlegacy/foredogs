@@ -7,7 +7,8 @@ working copies, and Home Assistant keeps just enough to render.
 
 Uploads are idempotent. Immich dedupes on a client-supplied SHA-1, so re-running
 a day's publish does not create a second copy, and no local state has to be kept
-to remember what was already sent.
+to remember what was already sent. The same check lets every publish send the
+days from the local archive that never arrived.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ import json
 import logging
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, time
 from pathlib import Path
 
 logger = logging.getLogger("foredogs_generator")
@@ -199,3 +200,70 @@ def archive(
         "album_id": album_id,
         "in_album": in_album,
     }
+
+
+def missing(target: ImmichTarget, images: list[Path]) -> list[Path]:
+    """Return the images Immich does not have yet, in one request."""
+    if not images:
+        return []
+
+    reply = _api(
+        target,
+        "POST",
+        "/api/assets/bulk-upload-check",
+        {
+            "assets": [
+                {"id": image.name, "checksum": hashlib.sha1(image.read_bytes()).hexdigest()}
+                for image in images
+            ]
+        },
+    )
+
+    present = {
+        result.get("id")
+        for result in (reply.get("results", []) if isinstance(reply, dict) else [])
+        if result.get("action") == "reject" and result.get("reason") == "duplicate"
+    }
+    return [image for image in images if image.name not in present]
+
+
+def archive_backlog(target: ImmichTarget, archive_dir: Path) -> list[str]:
+    """Upload every dated original in the local archive that Immich lacks.
+
+    The daily publish only sends today's picture, so each day Immich was down
+    stayed a hole in the album even after it came back. The local archive holds
+    every one of those days; this sends whatever is missing.
+
+    Returns the names of the files it uploaded. Stops at the first failure, so a
+    still-unreachable Immich costs one request rather than one per day.
+    """
+    archive_dir = Path(archive_dir)
+    if not archive_dir.is_dir():
+        return []
+
+    dated = []
+    for candidate in sorted(archive_dir.glob("*.png")):
+        try:
+            day = date.fromisoformat(candidate.stem)
+        except ValueError:
+            continue
+        dated.append((candidate, day))
+
+    todo = missing(target, [image for image, _ in dated])
+    if not todo:
+        return []
+
+    days = dict(dated)
+    album_id = resolve_album(target)
+    sent = []
+    for image in todo:
+        # The archive copy keeps the generation time as its mtime. Fall back to
+        # the morning of the filename's date if something has touched the file
+        # since, so the asset still lands on the right day.
+        stamp = datetime.fromtimestamp(image.stat().st_mtime)
+        if stamp.date() != days[image]:
+            stamp = datetime.combine(days[image], time(5, 0))
+        asset_id = upload(target, image, taken=stamp)
+        add_to_album(target, album_id, asset_id)
+        sent.append(image.name)
+    return sent

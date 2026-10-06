@@ -50,7 +50,7 @@ script: !include scripts.yaml
 | `name` | `Daily Foredogs` |
 | `config_flow` | `false` |
 | `iot_class` | `local_polling` |
-| `version` | `2.0.0` |
+| `version` | `2.0.1` |
 | `requirements` | `openai>=1.40.0`, `Pillow>=12.0.0` |
 
 `openai` is there for the legacy picture path in `foredogs.py`, which is

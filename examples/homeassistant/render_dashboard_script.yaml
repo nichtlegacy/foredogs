@@ -94,8 +94,11 @@ script:
           # in as a field. Callers that pass nothing — the generator, the
           # periodic automation — get the home page, which is why a scheduled
           # wake always shows the picture rather than whatever was last on the
-          # glass. int(1) also covers ESPHome sending the value as a string.
-          page: "{{ page | int(1) }}"
+          # glass. A field's `default` only fills the UI form, so a caller that
+          # passes nothing leaves `page` undefined and the template has to
+          # supply the 1 itself; int(1) alone raises on an undefined variable.
+          # int(1) also covers ESPHome sending the value as a string.
+          page: "{{ page | default(1) | int(1) }}"
           # Two pages exist. The renderer draws no page marker at all when this
           # is 1, so it has to be right or the panel claims to be alone.
           page_count: 2
